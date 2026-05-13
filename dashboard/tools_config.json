@@ -1,0 +1,23 @@
+[
+    {
+        "id": "network_monitor",
+        "name": "Monitor Server",
+        "directory": "../network_monitor",
+        "command": "python -u monitor_server.py",
+        "has_gui": false
+    },
+    {
+        "id": "scan_network",
+        "name": "LAN IP Scanner",
+        "directory": "../network_monitor",
+        "command": "python -u scan_network.py",
+        "has_gui": false
+    },
+    {
+        "id": "vietlott",
+        "name": "Vietlott Data Fetcher",
+        "directory": "../vietlott",
+        "command": "python -u vietlott.py",
+        "has_gui": false
+    }
+]

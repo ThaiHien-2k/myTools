@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>myTools Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-green: #10b981;
+            --accent-green-glow: rgba(16, 185, 129, 0.4);
+            --accent-red: #ef4444;
+            --accent-red-glow: rgba(239, 68, 68, 0.4);
+            --accent-blue: #38bdf8;
+            --bg-gradient: radial-gradient(circle at top right, #1e1b4b, #0f172a);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-gradient);
+            background-attachment: fixed;
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .header {
+            margin-bottom: 3rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            letter-spacing: -1px;
+            background: linear-gradient(to right, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .grid {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        .tool-info {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            flex-grow: 1;
+        }
+
+        .tool-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            min-width: 250px;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-badge.running {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-green);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .status-badge.stopped {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--accent-red);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .running .status-indicator {
+            background-color: var(--accent-green);
+            box-shadow: 0 0 8px var(--accent-green);
+        }
+
+        .stopped .status-indicator {
+            background-color: var(--accent-red);
+        }
+
+        .actions {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .btn {
+            padding: 0.6rem 1rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .btn-start { background: var(--accent-green); color: white; }
+        .btn-stop { background: var(--accent-red); color: white; }
+        .btn-view { background: rgba(56, 189, 248, 0.1); color: var(--accent-blue); border: 1px solid rgba(56, 189, 248, 0.2); }
+        .btn-view.active { background: var(--accent-blue); color: white; }
+
+        .terminal {
+            background: #000;
+            color: #0f0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            padding: 0;
+            border-radius: 8px;
+            height: 0;
+            overflow: hidden;
+            border: 0px solid #333;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0;
+            margin-top: 0;
+        }
+
+        .terminal.visible {
+            height: 250px;
+            padding: 15px;
+            opacity: 1;
+            border-width: 1px;
+            margin-top: 1rem;
+            overflow-y: auto;
+        }
+
+        .terminal.expanded {
+            height: 600px;
+        }
+
+        .terminal-content {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .expand-btn {
+            position: sticky;
+            float: right;
+            top: 0;
+            background: rgba(255, 255, 255, 0.1);
+            color: #94a3b8;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        #toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        
+        .toast {
+            background: rgba(30, 41, 59, 0.9);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-top: 10px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            animation: slideIn 0.3s ease forwards;
+        }
+
+        .toast.error { border-left: 4px solid var(--accent-red); }
+        .toast.success { border-left: 4px solid var(--accent-green); }
+
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>myTools Control Center</h1>
+        <button onclick="shutdownDashboard()" style="padding: 0.5rem 1rem; background: var(--accent-red); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Shutdown Dashboard</button>
+    </div>
+
+    <div class="grid" id="tools-container"></div>
+    <div id="toast-container"></div>
+
+    <script>
+        const container = document.getElementById('tools-container');
+
+        async function fetchTools() {
+            try {
+                const res = await fetch('/api/tools');
+                const tools = await res.json();
+                renderTools(tools);
+            } catch (error) { showToast('Error loading tools!', 'error'); }
+        }
+
+        function renderTools(tools) {
+            tools.forEach(tool => {
+                const isRunning = tool.status === 'Running';
+                let card = document.getElementById(`card-${tool.id}`);
+                
+                if (!card) {
+                    card = document.createElement('div');
+                    card.id = `card-${tool.id}`;
+                    card.className = 'card';
+                    container.appendChild(card);
+                }
+
+                const badgeClass = isRunning ? 'running' : 'stopped';
+                const isVisible = document.getElementById(`log-${tool.id}`)?.classList.contains('visible');
+                const isExpanded = document.getElementById(`log-${tool.id}`)?.classList.contains('expanded');
+                
+                card.innerHTML = `
+                    <div class="card-top">
+                        <div class="tool-info">
+                            <h2 class="tool-name">${tool.name}</h2>
+                            <span class="status-badge ${badgeClass}">
+                                <span class="status-indicator"></span>
+                                ${tool.status}
+                            </span>
+                        </div>
+                        <div class="actions">
+                            <button class="btn btn-view ${isVisible ? 'active' : ''}" onclick="toggleLogs('${tool.id}')">
+                                Logs
+                            </button>
+                            <button class="btn btn-start" onclick="startTool('${tool.id}')" ${isRunning ? 'disabled' : ''}>Start</button>
+                            <button class="btn btn-stop" onclick="stopTool('${tool.id}')" ${!isRunning ? 'disabled' : ''}>Stop</button>
+                        </div>
+                    </div>
+                    ${!tool.has_gui ? `
+                        <div class="terminal ${isVisible ? 'visible' : ''} ${isExpanded ? 'expanded' : ''}" id="log-${tool.id}">
+                            <button class="expand-btn" onclick="toggleExpand('${tool.id}')">${isExpanded ? 'Minimize' : 'Maximize'}</button>
+                            <div class="terminal-content" id="log-content-${tool.id}">${document.getElementById(`log-content-${tool.id}`)?.textContent || 'Waiting for logs...'}</div>
+                        </div>` : ''}
+                `;
+            });
+            
+            if(!window.logIntervals) window.logIntervals = {};
+            tools.forEach(tool => {
+                if(!tool.has_gui && !window.logIntervals[tool.id]) {
+                    window.logIntervals[tool.id] = setInterval(() => fetchLogs(tool.id), 2000);
+                    fetchLogs(tool.id);
+                }
+            });
+        }
+
+        function toggleLogs(id) {
+            document.getElementById(`log-${id}`).classList.toggle('visible');
+            fetchTools();
+        }
+
+        function toggleExpand(id) {
+            document.getElementById(`log-${id}`).classList.toggle('expanded');
+            fetchTools();
+        }
+
+        async function fetchLogs(id) {
+            try {
+                const res = await fetch(`/api/tools/${id}/logs`);
+                const data = await res.json();
+                const term = document.getElementById(`log-${id}`);
+                const content = document.getElementById(`log-content-${id}`);
+                if(term && content && data.logs) {
+                    const isScrolledToBottom = term.scrollHeight - term.clientHeight <= term.scrollTop + 30;
+                    content.textContent = data.logs.join('\n') || "No log data yet...";
+                    if(isScrolledToBottom) term.scrollTop = term.scrollHeight;
+                }
+            } catch(e) {}
+        }
+
+        async function startTool(id) {
+            const res = await fetch(`/api/tools/${id}/start`, { method: 'POST' });
+            const data = await res.json();
+            showToast(data.message, data.success ? 'success' : 'error');
+            fetchTools();
+        }
+
+        async function stopTool(id) {
+            const res = await fetch(`/api/tools/${id}/stop`, { method: 'POST' });
+            const data = await res.json();
+            showToast(data.message, data.success ? 'success' : 'error');
+            fetchTools();
+        }
+
+        async function shutdownDashboard() {
+            const res = await fetch('/api/shutdown', { method: 'POST' });
+            document.body.innerHTML = '<h1 style="text-align: center; margin-top: 50px; color: #ef4444;">Dashboard Offline</h1>';
+        }
+        
+        function showToast(msg, type) {
+            const toast = document.createElement('div');
+            toast.className = "toast " + type;
+            toast.textContent = msg;
+            document.getElementById('toast-container').appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        fetchTools();
+        setInterval(fetchTools, 5000);
+    </script>
+</body>
+</html>
