@@ -7,3 +7,5 @@ dashboard/processes.json
 .DS_Store
 *.tmp
 *.bak
+network_monitor/discord_msg_log.json
+network_monitor/pc_name_cache.csv
