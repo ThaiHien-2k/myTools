@@ -19,5 +19,12 @@
         "directory": "../vietlott",
         "command": "python -u vietlott.py",
         "has_gui": false
+    },
+    {
+        "id": "weather_forecast",
+        "name": "Nowcast Weather AI",
+        "directory": "../weather_forecast",
+        "command": "python -u app.py",
+        "has_gui": false
     }
 ]

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, make_response
 import json
 import os
 import subprocess
@@ -6,6 +6,7 @@ import threading
 import time
 
 app = Flask(__name__)
+app.config["TEMPLATES_AUTO_RELOAD"] = True
 
 # Dictionary to store process objects
 processes = {}
@@ -17,7 +18,57 @@ def load_config():
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    response = make_response(render_template('index.html'))
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
+# ==============================================================================
+# NOWCAST ROUTES
+# ==============================================================================
+NOWCAST_DIR = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../weather_forecast'))
+
+@app.route('/nowcast')
+def nowcast_ui():
+    return render_template('nowcast.html')
+
+@app.route('/api/nowcast/status', methods=['GET'])
+def get_nowcast_status():
+    status_file = os.path.join(NOWCAST_DIR, 'latest_status.json')
+    if os.path.exists(status_file):
+        with open(status_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            resp = make_response(jsonify(data))
+            resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            resp.headers['Pragma'] = 'no-cache'
+            resp.headers['Expires'] = '0'
+            return resp
+    return jsonify({"status": "WAITING", "message": "Chưa có dữ liệu. Đang quét...", "details": {}})
+
+@app.route('/api/nowcast/settings', methods=['GET', 'POST'])
+def nowcast_settings():
+    settings_file = os.path.join(NOWCAST_DIR, 'settings.json')
+    if request.method == 'GET':
+        if os.path.exists(settings_file):
+            with open(settings_file, 'r', encoding='utf-8') as f:
+                return jsonify(json.load(f))
+        return jsonify({"target_lat": 10.8231, "target_lon": 106.6297, "location_name": "TP. Hồ Chí Minh"})
+    
+    # POST
+    data = request.json
+    with open(settings_file, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
+    return jsonify({"success": True})
+
+@app.route('/api/nowcast/image')
+def nowcast_image():
+    from flask import send_file
+    img_path = os.path.join(NOWCAST_DIR, 'static', 'radar_analysis.png')
+    if os.path.exists(img_path):
+        return send_file(img_path, mimetype='image/png')
+    return "No image", 404
+
 
 @app.route('/api/tools', methods=['GET'])
 def get_tools():

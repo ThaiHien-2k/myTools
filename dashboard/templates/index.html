@@ -249,46 +249,75 @@
             tools.forEach(tool => {
                 const isRunning = tool.status === 'Running';
                 let card = document.getElementById(`card-${tool.id}`);
-                
+
                 if (!card) {
+                    // === Lần đầu: TẠO thẻ mới ===
                     card = document.createElement('div');
                     card.id = `card-${tool.id}`;
                     card.className = 'card';
-                    container.appendChild(card);
-                }
 
-                const badgeClass = isRunning ? 'running' : 'stopped';
-                const isVisible = document.getElementById(`log-${tool.id}`)?.classList.contains('visible');
-                const isExpanded = document.getElementById(`log-${tool.id}`)?.classList.contains('expanded');
-                
-                card.innerHTML = `
-                    <div class="card-top">
-                        <div class="tool-info">
-                            <h2 class="tool-name">${tool.name}</h2>
-                            <span class="status-badge ${badgeClass}">
-                                <span class="status-indicator"></span>
-                                ${tool.status}
-                            </span>
+                    const badgeClass = isRunning ? 'running' : 'stopped';
+                    card.innerHTML = `
+                        <div class="card-top">
+                            <div class="tool-info">
+                                <h2 class="tool-name">${tool.name}</h2>
+                                <span class="status-badge ${badgeClass}" id="badge-${tool.id}">
+                                    <span class="status-indicator"></span>
+                                    ${tool.status}
+                                </span>
+                            </div>
+                            <div class="actions" id="actions-${tool.id}">
+                                ${tool.id === 'weather_forecast' && isRunning ? `<button class="btn btn-view" style="background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border-color: rgba(16, 185, 129, 0.2);" onclick="window.open('/nowcast', '_blank')">Web UI ↗</button>` : ''}
+                                <button class="btn btn-view" id="log-btn-${tool.id}" onclick="toggleLogs('${tool.id}')">Logs</button>
+                                <button class="btn btn-start" id="start-btn-${tool.id}" onclick="startTool('${tool.id}')" ${isRunning ? 'disabled' : ''}>Start</button>
+                                <button class="btn btn-stop"  id="stop-btn-${tool.id}"  onclick="stopTool('${tool.id}')"  ${!isRunning ? 'disabled' : ''}>Stop</button>
+                            </div>
                         </div>
-                        <div class="actions">
-                            <button class="btn btn-view ${isVisible ? 'active' : ''}" onclick="toggleLogs('${tool.id}')">
-                                Logs
-                            </button>
-                            <button class="btn btn-start" onclick="startTool('${tool.id}')" ${isRunning ? 'disabled' : ''}>Start</button>
-                            <button class="btn btn-stop" onclick="stopTool('${tool.id}')" ${!isRunning ? 'disabled' : ''}>Stop</button>
-                        </div>
-                    </div>
-                    ${!tool.has_gui ? `
-                        <div class="terminal ${isVisible ? 'visible' : ''} ${isExpanded ? 'expanded' : ''}" id="log-${tool.id}">
-                            <button class="expand-btn" onclick="toggleExpand('${tool.id}')">${isExpanded ? 'Minimize' : 'Maximize'}</button>
-                            <div class="terminal-content" id="log-content-${tool.id}">${document.getElementById(`log-content-${tool.id}`)?.textContent || 'Waiting for logs...'}</div>
-                        </div>` : ''}
-                `;
+                        ${!tool.has_gui ? `
+                            <div class="terminal" id="log-${tool.id}">
+                                <button class="expand-btn" onclick="toggleExpand('${tool.id}')">Maximize</button>
+                                <div class="terminal-content" id="log-content-${tool.id}">Waiting for logs...</div>
+                            </div>` : ''}
+                    `;
+                    container.appendChild(card);
+                } else {
+                    // === Lần sau: CHỈ CẬP NHẬT các phần thay đổi (tránh giật) ===
+                    const badge = document.getElementById(`badge-${tool.id}`);
+                    if (badge) {
+                        badge.className = `status-badge ${isRunning ? 'running' : 'stopped'}`;
+                        badge.innerHTML = `<span class="status-indicator"></span>${tool.status}`;
+                    }
+
+                    const startBtn = document.getElementById(`start-btn-${tool.id}`);
+                    const stopBtn  = document.getElementById(`stop-btn-${tool.id}`);
+                    if (startBtn) startBtn.disabled = isRunning;
+                    if (stopBtn)  stopBtn.disabled  = !isRunning;
+
+                    // Cập nhật nút Web UI (chỉ với weather_forecast)
+                    if (tool.id === 'weather_forecast') {
+                        const actionsDiv = document.getElementById(`actions-${tool.id}`);
+                        if (actionsDiv) {
+                            let webBtn = document.getElementById('webui-btn-weather');
+                            if (isRunning && !webBtn) {
+                                webBtn = document.createElement('button');
+                                webBtn.id = 'webui-btn-weather';
+                                webBtn.className = 'btn btn-view';
+                                webBtn.style.cssText = 'background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border-color: rgba(16, 185, 129, 0.2);';
+                                webBtn.textContent = 'Web UI ↗';
+                                webBtn.onclick = () => window.open('/nowcast', '_blank');
+                                actionsDiv.prepend(webBtn);
+                            } else if (!isRunning && webBtn) {
+                                webBtn.remove();
+                            }
+                        }
+                    }
+                }
             });
-            
-            if(!window.logIntervals) window.logIntervals = {};
+
+            // Khởi động log interval 1 lần
+            if (!window.logIntervals) window.logIntervals = {};
             tools.forEach(tool => {
-                if(!tool.has_gui && !window.logIntervals[tool.id]) {
+                if (!tool.has_gui && !window.logIntervals[tool.id]) {
                     window.logIntervals[tool.id] = setInterval(() => fetchLogs(tool.id), 2000);
                     fetchLogs(tool.id);
                 }

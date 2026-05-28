@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nowcast AI Pro — Radar Tức Thời</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Leaflet.js Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        :root {
+            --bg: #0a0f1e;
+            --surface: #111827;
+            --surface2: #1f2937;
+            --border: rgba(255,255,255,0.07);
+            --text: #f9fafb;
+            --muted: #6b7280;
+            --safe:    #10b981;
+            --warning: #f59e0b;
+            --danger:  #ef4444;
+            --waiting: #6b7280;
+            --blue:    #3b82f6;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); }
+
+        /* === HEADER === */
+        .header {
+            padding: 1rem 1.5rem;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .header-left { display: flex; align-items: center; gap: 0.75rem; }
+        .header-title { font-size: 1.3rem; font-weight: 800; background: linear-gradient(135deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .back-btn {
+            padding: 0.4rem 0.9rem;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--muted);
+            font-size: 0.85rem;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .back-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+
+        /* === SEARCH BAR === */
+        .search-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex: 1;
+            max-width: 480px;
+            position: relative;
+        }
+        .search-input {
+            flex: 1;
+            padding: 0.55rem 1rem;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 0.95rem;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .search-input:focus { border-color: var(--blue); }
+        .search-input::placeholder { color: var(--muted); }
+        .search-btn {
+            padding: 0.55rem 1rem;
+            background: var(--blue);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+        .search-btn:hover { background: #2563eb; }
+        .autocomplete-list {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            background: var(--surface2);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 8px;
+            z-index: 9999;
+            max-height: 280px;
+            overflow-y: auto;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+        }
+        .autocomplete-list li {
+            padding: 0.7rem 1rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.15s;
+            list-style: none;
+        }
+        .autocomplete-list li:last-child { border-bottom: none; }
+        .autocomplete-list li:hover { background: rgba(59, 130, 246, 0.2); }
+        .autocomplete-list li em { color: var(--muted); font-style: normal; font-size: 0.8rem; }
+
+        /* === LAYOUT === */
+        .main {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            height: calc(100vh - 65px);
+        }
+        @media (max-width: 900px) {
+            .main { grid-template-columns: 1fr; grid-template-rows: 1fr 420px; }
+        }
+
+        /* === SIDEBAR === */
+        .sidebar {
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 1.25rem;
+            gap: 1rem;
+        }
+
+        /* Status Badge */
+        .status-block { text-align: center; }
+        .status-badge {
+            display: inline-block;
+            padding: 0.5rem 1.5rem;
+            border-radius: 50px;
+            font-weight: 800;
+            font-size: 1.05rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 0.75rem;
+            border: 1.5px solid;
+        }
+        .status-badge.SAFE    { color: var(--safe);    border-color: var(--safe);    background: rgba(16,185,129,0.1); }
+        .status-badge.WARNING { color: var(--warning); border-color: var(--warning); background: rgba(245,158,11,0.1); animation: pulseW 2s infinite; }
+        .status-badge.DANGER  { color: var(--danger);  border-color: var(--danger);  background: rgba(239,68,68,0.1);  animation: pulseD 1.2s infinite; }
+        .status-badge.WAITING, .status-badge.ERROR { color: var(--muted); border-color: var(--muted); background: rgba(107,114,128,0.1); }
+
+        @keyframes pulseW {
+            0%,100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.4); }
+            50%      { box-shadow: 0 0 0 12px rgba(245,158,11,0); }
+        }
+        @keyframes pulseD {
+            0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+            50%      { box-shadow: 0 0 0 16px rgba(239,68,68,0); }
+        }
+
+        .status-message {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: var(--muted);
+            min-height: 48px;
+        }
+
+        /* Stat Cards */
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; }
+        .stat {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.9rem 0.75rem;
+            text-align: center;
+        }
+        .stat-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.35rem; }
+        .stat-val { font-size: 1.5rem; font-weight: 800; line-height: 1; }
+        .stat-unit { font-size: 0.8rem; font-weight: 400; color: var(--muted); margin-left: 2px; }
+
+        /* Weather description bar */
+        .weather-desc-card {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.8rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .weather-desc-icon { font-size: 1.8rem; flex-shrink: 0; }
+        .weather-desc-info { text-align: left; }
+        .weather-desc-title { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .weather-desc-text  { font-size: 1rem; font-weight: 600; margin-top: 0.1rem; }
+
+        /* Rain probability bar */
+        .rain-prob-card {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.8rem 1rem;
+        }
+        .rain-prob-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .rain-prob-label span { font-size: 1rem; font-weight: 800; color: var(--text); }
+        .rain-prob-bar-wrap { background: rgba(255,255,255,0.06); border-radius: 50px; height: 8px; overflow: hidden; }
+        .rain-prob-bar {
+            height: 100%; border-radius: 50px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            transition: width 0.8s ease;
+        }
+
+        /* Wind compass */
+        .compass-card {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.9rem;
+            text-align: center;
+        }
+        .compass-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; }
+        .compass-wrap { display: flex; align-items: center; justify-content: center; gap: 0.75rem; }
+        .compass-arrow {
+            width: 36px; height: 36px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem;
+            transition: transform 0.8s ease;
+        }
+        .compass-text { font-size: 0.9rem; color: var(--text); }
+
+        .update-time { font-size: 0.78rem; color: var(--muted); text-align: center; }
+
+        /* === MAP === */
+        #map { width: 100%; height: 100%; }
+
+        /* Leaflet dark overrides */
+        .leaflet-container { background: #0a0f1e !important; }
+        .leaflet-control-attribution { background: rgba(0,0,0,0.6) !important; color: #555 !important; }
+        .leaflet-control-attribution a { color: #555 !important; }
+    </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+    <div class="header-left">
+        <a href="/" class="back-btn">← Dashboard</a>
+        <span class="header-title">Nowcast AI Pro</span>
+    </div>
+
+    <!-- SEARCH BOX -->
+    <div class="search-container" id="searchWrap">
+        <input type="text" id="searchInput" class="search-input"
+               placeholder="🔍 Tìm quận/huyện/phường/xã..."
+               autocomplete="off">
+        <button class="search-btn" onclick="doSearch()">Cập nhật</button>
+        <ul id="autocompleteList" class="autocomplete-list" style="display:none;"></ul>
+    </div>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="main">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="status-block">
+            <div id="statusBadge" class="status-badge WAITING">ĐANG TẢI</div>
+            <div id="statusMsg" class="status-message">Đang kết nối tới máy chủ AI...</div>
+        </div>
+
+        <!-- WEATHER DESC -->
+        <div class="weather-desc-card">
+            <div class="weather-desc-icon" id="wxIcon">🌤️</div>
+            <div class="weather-desc-info">
+                <div class="weather-desc-title">Thời tiết hiện tại</div>
+                <div class="weather-desc-text" id="wxDesc">Đang tải...</div>
+            </div>
+        </div>
+
+        <!-- STATS GRID 1: Temperature + Humidity -->
+        <div class="stats-grid">
+            <div class="stat">
+                <div class="stat-label">🌡️ Nhiệt độ</div>
+                <div class="stat-val" id="vTemp">--<span class="stat-unit">°C</span></div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">💧 Độ ẩm</div>
+                <div class="stat-val" id="vHum">--<span class="stat-unit">%</span></div>
+            </div>
+        </div>
+
+        <!-- RAIN PROBABILITY BAR -->
+        <div class="rain-prob-card">
+            <div class="rain-prob-label">
+                🎲 Xác suất mưa giờ tới
+                <span id="vProb">--%</span>
+            </div>
+            <div class="rain-prob-bar-wrap">
+                <div class="rain-prob-bar" id="vProbBar" style="width:0%"></div>
+            </div>
+        </div>
+
+        <!-- STATS GRID 2: Radar data -->
+        <div class="stats-grid">
+            <div class="stat">
+                <div class="stat-label">🌧️ Lượng mưa</div>
+                <div class="stat-val" id="vRain">--<span class="stat-unit">mm</span></div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">💨 Tốc độ mây</div>
+                <div class="stat-val" id="vSpeed">--<span class="stat-unit">km/h</span></div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">📏 Khoảng cách</div>
+                <div class="stat-val" id="vDist">--<span class="stat-unit">km</span></div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">⏱️ ETA</div>
+                <div class="stat-val" id="vETA">--<span class="stat-unit">phút</span></div>
+            </div>
+        </div>
+
+        <div class="compass-card">
+            <div class="compass-label">Hướng gió bề mặt</div>
+            <div class="compass-wrap">
+                <div class="compass-arrow" id="windArrow">🧭</div>
+                <div class="compass-text" id="windText">-- km/h</div>
+            </div>
+        </div>
+
+        <div class="update-time" id="updateTime">Chưa có dữ liệu</div>
+    </div>
+
+    <!-- MAP -->
+    <div id="map"></div>
+</div>
+
+<script>
+// ============================================================
+// LEAFLET MAP SETUP
+// ============================================================
+const map = L.map('map', {
+    center: [10.8231, 106.6297],
+    zoom: 9,
+    zoomControl: true
+});
+
+// Base layer — Dark OSM tiles
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap © CARTO',
+    subdomains: 'abcd',
+    maxZoom: 19
+}).addTo(map);
+
+// === Markers ===
+const homeIcon = L.divIcon({
+    html: `<div style="font-size:28px;filter:drop-shadow(0 0 6px #3b82f6);">🏠</div>`,
+    className: '', iconAnchor: [14, 28]
+});
+const cloudIcon = L.divIcon({
+    html: `<div style="font-size:28px;filter:drop-shadow(0 0 8px #f59e0b);">⛈️</div>`,
+    className: '', iconAnchor: [14, 28]
+});
+
+let homeMarker = L.marker([10.8231, 106.6297], { icon: homeIcon })
+    .addTo(map)
+    .bindPopup('<b>Vị trí của bạn</b>');
+
+let cloudMarker = null;
+let cloudLine = null;
+let radarLayer = null;
+
+function updateRadarLayer(host, path) {
+    if (radarLayer) { map.removeLayer(radarLayer); }
+    if (!host || !path) return;
+    const tileUrl = `${host}${path}/512/{z}/{x}/{y}/8/1_1.png`;
+    radarLayer = L.tileLayer(tileUrl, {
+        opacity: 0.7,
+        attribution: '© RainViewer',
+        tileSize: 512,
+        zoomOffset: 0
+    }).addTo(map);
+}
+
+function updateCloudMarker(cloudLat, cloudLon, homeLat, homeLon) {
+    if (cloudMarker) { map.removeLayer(cloudMarker); cloudMarker = null; }
+    if (cloudLine)   { map.removeLayer(cloudLine);   cloudLine = null;   }
+
+    if (cloudLat == null || cloudLon == null) return;
+
+    cloudMarker = L.marker([cloudLat, cloudLon], { icon: cloudIcon })
+        .addTo(map)
+        .bindPopup('<b>Vùng mây đang phân tích</b>');
+
+    cloudLine = L.polyline(
+        [[homeLat, homeLon], [cloudLat, cloudLon]],
+        { color: '#f59e0b', weight: 2, dashArray: '6,6', opacity: 0.8 }
+    ).addTo(map);
+}
+
+function moveHome(lat, lon) {
+    homeMarker.setLatLng([lat, lon]);
+    map.setView([lat, lon], map.getZoom());
+}
+
+// ============================================================
+// SEARCH — Nominatim Autocomplete
+// ============================================================
+let searchTimer = null;
+const searchInput = document.getElementById('searchInput');
+const autocompleteList = document.getElementById('autocompleteList');
+
+searchInput.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    const q = searchInput.value.trim();
+    if (q.length < 3) { autocompleteList.style.display = 'none'; return; }
+    searchTimer = setTimeout(() => fetchSuggestions(q), 400);
+});
+
+searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') doSearch();
+    if (e.key === 'Escape') autocompleteList.style.display = 'none';
+});
+
+document.addEventListener('click', (e) => {
+    if (!document.getElementById('searchWrap').contains(e.target)) {
+        autocompleteList.style.display = 'none';
+    }
+});
+
+async function fetchSuggestions(q) {
+    try {
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q + ' Việt Nam')}&format=json&limit=6&accept-language=vi&addressdetails=1`;
+        const res = await fetch(url, { headers: { 'Accept-Language': 'vi' } });
+        const data = await res.json();
+
+        if (!data.length) { autocompleteList.style.display = 'none'; return; }
+
+        autocompleteList.innerHTML = '';
+        data.forEach(item => {
+            const li = document.createElement('li');
+            const name = item.display_name.split(',').slice(0, 3).join(', ');
+            li.innerHTML = `${name} <em>(${parseFloat(item.lat).toFixed(4)}, ${parseFloat(item.lon).toFixed(4)})</em>`;
+            li.addEventListener('click', () => {
+                searchInput.value = name;
+                autocompleteList.style.display = 'none';
+                applyLocation(parseFloat(item.lat), parseFloat(item.lon), name);
+            });
+            autocompleteList.appendChild(li);
+        });
+        autocompleteList.style.display = 'block';
+    } catch(e) {
+        console.error('Nominatim error:', e);
+    }
+}
+
+async function doSearch() {
+    const q = searchInput.value.trim();
+    if (!q) return;
+    autocompleteList.style.display = 'none';
+    await fetchSuggestions(q);
+    // Nếu chỉ có 1 kết quả thì tự động chọn
+    const items = autocompleteList.querySelectorAll('li');
+    if (items.length === 1) items[0].click();
+}
+
+async function applyLocation(lat, lon, name) {
+    moveHome(lat, lon);
+    document.getElementById('statusMsg').textContent = `🔄 Đang quét Radar tại ${name}...`;
+    document.getElementById('statusBadge').className = 'status-badge WAITING';
+    document.getElementById('statusBadge').textContent = 'ĐANG QUÉT';
+
+    try {
+        await fetch('/api/nowcast/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target_lat: lat, target_lon: lon, location_name: name })
+        });
+        // Worker sẽ quét lại trong ~2 giây. Đợi rồi fetch status mới
+        setTimeout(fetchStatus, 5000);
+    } catch(e) {
+        console.error('Settings error:', e);
+    }
+}
+
+// Load settings hiện tại khi mở trang
+async function loadCurrentSettings() {
+    try {
+        const res = await fetch('/api/nowcast/settings');
+        const data = await res.json();
+        moveHome(data.target_lat, data.target_lon);
+        searchInput.placeholder = `🔍 ${data.location_name || 'Tìm quận/huyện/phường/xã...'}`;
+    } catch(e) {}
+}
+
+// ============================================================
+// STATUS POLLING
+// ============================================================
+function setStatText(id, val, decimals = 0, suffix = '') {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const num = parseFloat(val);
+    el.innerHTML = `${isNaN(num) ? '--' : num.toFixed(decimals)}<span class="stat-unit">${suffix}</span>`;
+}
+
+const DIRECTION_LABELS = ['N','NE','E','SE','S','SW','W','NW'];
+function degToCompass(deg) { return DIRECTION_LABELS[Math.round(deg / 45) % 8]; }
+
+async function fetchStatus() {
+    try {
+        const res = await fetch('/api/nowcast/status');
+        const data = await res.json();
+        const d = data.details || {};
+
+        // Status badge
+        const badge = document.getElementById('statusBadge');
+        const statusMap = { SAFE:'AN TOÀN', WARNING:'CẢNH BÁO', DANGER:'KHẨN CẤP', WAITING:'ĐANG ĐỢI', ERROR:'LỖI' };
+        badge.className = `status-badge ${data.status}`;
+        badge.textContent = statusMap[data.status] || data.status;
+
+        document.getElementById('statusMsg').textContent = data.message || '';
+
+        // === Thông số thời tiết đầy đủ ===
+        const temp = d.temperature != null ? d.temperature : null;
+        const fl   = d.feels_like  != null ? d.feels_like  : null;
+        const hum  = d.humidity    != null ? d.humidity    : null;
+        const prob = d.precipitation_probability ?? 0;
+        const desc = d.weather_desc || 'Không rõ';
+
+        // Chọn icon theo mô tả
+        const iconMap = {
+            'quang': '☀️', 'ít mây': '🌤️', 'rải rác': '⛅', 'nhiều mây': '☁️',
+            'sương': '🌫️', 'phùn': '🌦️', 'nhẹ': '🌦️', 'vừa': '🌧️',
+            'to': '🌧️', 'rào': '🌧️', 'giông': '⛈️', 'đá': '⛈️', 'tạnh': '☀️'
+        };
+        let icon = '🌡️';
+        const descLower = desc.toLowerCase();
+        for (const [k, v] of Object.entries(iconMap)) {
+            if (descLower.includes(k)) { icon = v; break; }
+        }
+        document.getElementById('wxIcon').textContent = icon;
+        document.getElementById('wxDesc').textContent = desc;
+
+        if (temp != null) {
+            document.getElementById('vTemp').innerHTML =
+                `${temp.toFixed(1)}<span class="stat-unit">°C</span>${fl != null ? ` <span style="font-size:0.75rem;color:var(--muted)">(${fl.toFixed(0)}°)</span>` : ''}`;
+        }
+        if (hum != null) {
+            document.getElementById('vHum').innerHTML = `${hum}<span class="stat-unit">%</span>`;
+        }
+        document.getElementById('vProb').textContent    = `${prob}%`;
+        document.getElementById('vProbBar').style.width = `${prob}%`;
+
+        // Đổi màu thanh xác suất mưa
+        const bar = document.getElementById('vProbBar');
+        if (prob >= 70)      bar.style.background = 'linear-gradient(90deg,#f59e0b,#ef4444)';
+        else if (prob >= 40) bar.style.background = 'linear-gradient(90deg,#3b82f6,#f59e0b)';
+        else                 bar.style.background = 'linear-gradient(90deg,#3b82f6,#8b5cf6)';
+
+        setStatText('vRain',  d.rain_mm,         1, 'mm');
+        setStatText('vSpeed', d.cloud_speed,      1, 'km/h');
+        setStatText('vDist',  d.cloud_distance,   1, 'km');
+        // Format ETA as XhYp or Yp
+        const etaVal = document.getElementById('vETA');
+        if (etaVal) {
+            const minutes = d.eta_minutes;
+            if (minutes == null || isNaN(parseFloat(minutes))) {
+                etaVal.innerHTML = `--`;
+            } else {
+                const h = Math.floor(minutes / 60);
+                const m = Math.round(minutes % 60);
+                if (h > 0) {
+                    etaVal.innerHTML = `${h}<span class="stat-unit">h</span>${m < 10 ? '0' + m : m}<span class="stat-unit">p</span>`;
+                } else {
+                    etaVal.innerHTML = `${m}<span class="stat-unit">p</span>`;
+                }
+            }
+        }
+
+        // Wind compass
+        if (d.wind_deg != null) {
+            document.getElementById('windArrow').style.transform = `rotate(${d.wind_deg}deg)`;
+            document.getElementById('windArrow').textContent = '↑';
+            document.getElementById('windText').textContent =
+                `${(d.wind_speed || 0).toFixed(1)} km/h — ${degToCompass(d.wind_deg)}`;
+        }
+
+        // Radar tile layer
+        if (d.rainviewer_host && d.rainviewer_path) {
+            updateRadarLayer(d.rainviewer_host, d.rainviewer_path);
+        }
+
+        // Cloud marker
+        const tLat = d.target_lat || 10.8231;
+        const tLon = d.target_lon || 106.6297;
+        updateCloudMarker(d.cloud_lat, d.cloud_lon, tLat, tLon);
+        moveHome(tLat, tLon);
+
+        // Timestamp
+        if (data.timestamp) {
+            const dt = new Date(data.timestamp * 1000);
+            document.getElementById('updateTime').textContent =
+                `Cập nhật: ${dt.toLocaleTimeString('vi-VN')} — ${dt.toLocaleDateString('vi-VN')}`;
+        }
+    } catch(e) {
+        console.error('Status error:', e);
+    }
+}
+
+// Init
+loadCurrentSettings();
+fetchStatus();
+setInterval(fetchStatus, 15000);
+</script>
+</body>
+</html>
