@@ -5,7 +5,7 @@ import json
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from radar_nowcast import run_analysis
-from discord_alert import send_daily_summary
+from discord_alert import send_daily_summary, cleanup_old_day_messages, load_state
 
 if sys.stdout.encoding != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8')
@@ -39,6 +39,26 @@ def save_status(data):
     except Exception as e:
         print(f"❌ Lỗi ghi status: {e}")
 
+def is_status_today(data):
+    try:
+        saved_day = time.strftime("%Y-%m-%d", time.localtime(float(data.get("timestamp", 0))))
+        return saved_day == time.strftime("%Y-%m-%d")
+    except Exception:
+        return False
+
+def cleanup_old_status_file():
+    if not os.path.exists(STATUS_FILE):
+        return
+    try:
+        with open(STATUS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if is_status_today(data):
+            return
+        os.remove(STATUS_FILE)
+        print("🧹 Đã xóa latest_status.json của ngày cũ.")
+    except Exception as e:
+        print(f"⚠️ Không thể kiểm tra/xóa status cũ: {e}")
+
 # ──────────────────────────────────────────────────────────────────────────────
 scheduler = BackgroundScheduler(timezone="Asia/Bangkok")
 
@@ -47,6 +67,7 @@ def job_analyze_weather():
     """Chạy định kỳ mỗi 5 phút — quét Radar và gửi Discord nếu cần."""
     print(f"\n[{time.strftime('%H:%M:%S')}] 🕒 Bắt đầu quét Radar...")
     try:
+        cleanup_old_status_file()
         settings = load_settings()
         lat      = float(settings.get("target_lat",    10.8231))
         lon      = float(settings.get("target_lon",    106.6297))
@@ -68,6 +89,7 @@ def job_daily_report():
     """
     print(f"\n[{time.strftime('%H:%M:%S')}] 📋 Gửi báo cáo thời tiết định kỳ...")
     try:
+        cleanup_old_status_file()
         settings = load_settings()
         loc_name = settings.get("location_name", "Không rõ")
 
@@ -75,7 +97,15 @@ def job_daily_report():
         if os.path.exists(STATUS_FILE):
             with open(STATUS_FILE, "r", encoding="utf-8") as f:
                 last = json.load(f)
-            details = last.get("details", {})
+            if is_status_today(last):
+                details = last.get("details", {})
+            else:
+                lat = float(settings.get("target_lat", 10.8231))
+                lon = float(settings.get("target_lon", 106.6297))
+                result = run_analysis(target_lat=lat, target_lon=lon)
+                result["location_name"] = loc_name
+                save_status(result)
+                details = result.get("details", {})
         else:
             # Chưa có dữ liệu → chạy phân tích ngay
             lat = float(settings.get("target_lat", 10.8231))
@@ -91,6 +121,9 @@ def job_daily_report():
 if __name__ == "__main__":
     print("🚀 Khởi động Nowcast Worker V3...")
 
+    # Dọn sạch cảnh báo/Daily report cũ nếu qua ngày mới
+    cleanup_old_day_messages(load_state())
+
     # Chạy phân tích ngay khi khởi động
     job_analyze_weather()
 
@@ -98,7 +131,7 @@ if __name__ == "__main__":
     scheduler.add_job(job_analyze_weather, 'interval', minutes=5, id='radar_scan')
 
     # Báo cáo định kỳ lúc 10:00, 14:00, 16:00 (giờ Việt Nam)
-    for hour in [10, 14, 16]:
+    for hour in [8, 10, 14, 16]:
         scheduler.add_job(
             job_daily_report,
             CronTrigger(hour=hour, minute=0, timezone="Asia/Bangkok"),

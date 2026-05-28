@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nowcast AI Pro — Radar Tức Thời</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="/asset/favicon/weather-forecast-favicon.png?v=2" />
+    <link rel="shortcut icon" type="image/png" href="/asset/favicon/weather-forecast-favicon.png?v=2" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Leaflet.js Map -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -213,6 +215,37 @@
             transition: width 0.8s ease;
         }
 
+        .risk-card {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.9rem 1rem;
+        }
+        .risk-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+        .risk-title { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .risk-score { font-size: 1.1rem; font-weight: 800; }
+        .risk-bar-wrap { background: rgba(255,255,255,0.06); border-radius: 50px; height: 9px; overflow: hidden; }
+        .risk-bar { height: 100%; width: 0%; border-radius: 50px; background: var(--safe); transition: width 0.8s ease, background 0.25s ease; }
+        .risk-meta { margin-top: 0.55rem; font-size: 0.78rem; color: var(--muted); line-height: 1.45; }
+        .reason-list {
+            margin-top: 0.65rem;
+            display: grid;
+            gap: 0.35rem;
+            font-size: 0.8rem;
+            color: var(--text);
+            line-height: 1.35;
+        }
+        .reason-item {
+            padding-left: 0.6rem;
+            border-left: 2px solid rgba(255,255,255,0.12);
+        }
+
         /* Wind compass */
         .compass-card {
             background: var(--surface2);
@@ -301,6 +334,18 @@
             <div class="rain-prob-bar-wrap">
                 <div class="rain-prob-bar" id="vProbBar" style="width:0%"></div>
             </div>
+        </div>
+
+        <div class="risk-card">
+            <div class="risk-head">
+                <div class="risk-title">Điểm rủi ro AI</div>
+                <div class="risk-score" id="vRisk">--/100</div>
+            </div>
+            <div class="risk-bar-wrap">
+                <div class="risk-bar" id="vRiskBar"></div>
+            </div>
+            <div class="risk-meta" id="vRiskMeta">Đang chờ tín hiệu radar...</div>
+            <div class="reason-list" id="vReasons"></div>
         </div>
 
         <!-- STATS GRID 2: Radar data -->
@@ -559,6 +604,34 @@ async function fetchStatus() {
         if (prob >= 70)      bar.style.background = 'linear-gradient(90deg,#f59e0b,#ef4444)';
         else if (prob >= 40) bar.style.background = 'linear-gradient(90deg,#3b82f6,#f59e0b)';
         else                 bar.style.background = 'linear-gradient(90deg,#3b82f6,#8b5cf6)';
+
+        const risk = Math.max(0, Math.min(100, parseInt(d.risk_score ?? 0, 10)));
+        const confidence = Math.round((parseFloat(d.confidence ?? 0) || 0) * 100);
+        const riskBar = document.getElementById('vRiskBar');
+        document.getElementById('vRisk').textContent = `${risk}/100`;
+        riskBar.style.width = `${risk}%`;
+        if (risk >= 70)      riskBar.style.background = 'linear-gradient(90deg,#f59e0b,#ef4444)';
+        else if (risk >= 40) riskBar.style.background = 'linear-gradient(90deg,#3b82f6,#f59e0b)';
+        else                 riskBar.style.background = 'linear-gradient(90deg,#10b981,#3b82f6)';
+
+        const pathRain = parseFloat(d.path_rain_mm ?? 0) || 0;
+        const angle = d.approach_angle_deg == null ? '--' : `${parseFloat(d.approach_angle_deg).toFixed(0)}°`;
+        const rawRisk = parseInt(d.raw_risk_score ?? risk, 10);
+        const trendMap = { rising: 'đang tăng', falling: 'đang giảm', stable: 'ổn định' };
+        const trend = trendMap[d.risk_trend] || 'ổn định';
+        const rings = Array.isArray(d.radar_rings) ? d.radar_rings : [];
+        const nearestWetRing = rings.find(r => (parseFloat(r.rainy_ratio) || 0) > 0);
+        const ringText = nearestWetRing
+            ? ` · Radar ${nearestWetRing.range_km}km ${(nearestWetRing.rainy_ratio * 100).toFixed(1)}%`
+            : '';
+        document.getElementById('vRiskMeta').textContent =
+            `Tin cậy ${confidence}% · Thô ${rawRisk}/100 · ${trend} · Góc ${angle} · Mưa dọc đường ${pathRain.toFixed(1)} mm${ringText}`;
+
+        const reasonsEl = document.getElementById('vReasons');
+        const reasons = Array.isArray(d.analysis_reasons) ? d.analysis_reasons : [];
+        reasonsEl.innerHTML = reasons.slice(0, 4)
+            .map(reason => `<div class="reason-item">${reason}</div>`)
+            .join('');
 
         setStatText('vRain',  d.rain_mm,         1, 'mm');
         setStatText('vSpeed', d.cloud_speed,      1, 'km/h');

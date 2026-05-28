@@ -1,17 +1,31 @@
-from flask import Flask, render_template, jsonify, request, make_response
+from flask import Flask, render_template, jsonify, request, make_response, send_from_directory
 import json
 import os
 import subprocess
 import threading
 import time
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='asset', static_url_path='/asset')
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 
 # Dictionary to store process objects
 processes = {}
 process_logs = {}
 AUTO_START_TOOLS = ['lock_tracker']
+
+
+@app.route('/asset/<path:filename>')
+def asset_file(filename):
+    return send_from_directory(app.static_folder, filename)
+
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(
+        os.path.join(app.static_folder, 'favicon'),
+        'my-tools-favicon.png',
+        mimetype='image/png'
+    )
 
 
 def load_config():
@@ -136,6 +150,13 @@ def get_nowcast_status():
     if os.path.exists(status_file):
         with open(status_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
+            try:
+                saved_day = time.strftime('%Y-%m-%d', time.localtime(float(data.get('timestamp', 0))))
+                if saved_day != time.strftime('%Y-%m-%d'):
+                    os.remove(status_file)
+                    return jsonify({"status": "WAITING", "message": "Dữ liệu thời tiết đã cũ. Đang quét lại...", "details": {}})
+            except Exception:
+                return jsonify({"status": "WAITING", "message": "Dữ liệu thời tiết không hợp lệ. Đang quét lại...", "details": {}})
             resp = make_response(jsonify(data))
             resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
             resp.headers['Pragma'] = 'no-cache'
