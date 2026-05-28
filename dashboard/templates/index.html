@@ -267,7 +267,8 @@
                                 </span>
                             </div>
                             <div class="actions" id="actions-${tool.id}">
-                                ${tool.id === 'weather_forecast' && isRunning ? `<button class="btn btn-view" style="background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border-color: rgba(16, 185, 129, 0.2);" onclick="window.open('/nowcast', '_blank')">Web UI ↗</button>` : ''}
+                                ${tool.id === 'weather_forecast' && isRunning ? `<button id="webui-btn-weather" class="btn btn-view" style="background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border-color: rgba(16, 185, 129, 0.2);" onclick="window.open('/nowcast', '_blank')">Web UI ↗</button>` : ''}
+                                ${tool.id === 'lock_tracker' && isRunning ? `<button id="webui-btn-lock" class="btn btn-view" style="background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border-color: rgba(16, 185, 129, 0.2);" onclick="window.open('/lock', '_blank')">Web UI ↗</button>` : ''}
                                 <button class="btn btn-view" id="log-btn-${tool.id}" onclick="toggleLogs('${tool.id}')">Logs</button>
                                 <button class="btn btn-start" id="start-btn-${tool.id}" onclick="startTool('${tool.id}')" ${isRunning ? 'disabled' : ''}>Start</button>
                                 <button class="btn btn-stop"  id="stop-btn-${tool.id}"  onclick="stopTool('${tool.id}')"  ${!isRunning ? 'disabled' : ''}>Stop</button>
@@ -293,18 +294,19 @@
                     if (startBtn) startBtn.disabled = isRunning;
                     if (stopBtn)  stopBtn.disabled  = !isRunning;
 
-                    // Cập nhật nút Web UI (chỉ với weather_forecast)
-                    if (tool.id === 'weather_forecast') {
+                    // Cập nhật nút Web UI (weather_forecast và lock_tracker)
+                    if (tool.id === 'weather_forecast' || tool.id === 'lock_tracker') {
                         const actionsDiv = document.getElementById(`actions-${tool.id}`);
                         if (actionsDiv) {
-                            let webBtn = document.getElementById('webui-btn-weather');
+                            const btnId = tool.id === 'weather_forecast' ? 'webui-btn-weather' : 'webui-btn-lock';
+                            let webBtn = document.getElementById(btnId);
                             if (isRunning && !webBtn) {
                                 webBtn = document.createElement('button');
-                                webBtn.id = 'webui-btn-weather';
+                                webBtn.id = btnId;
                                 webBtn.className = 'btn btn-view';
                                 webBtn.style.cssText = 'background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border-color: rgba(16, 185, 129, 0.2);';
                                 webBtn.textContent = 'Web UI ↗';
-                                webBtn.onclick = () => window.open('/nowcast', '_blank');
+                                webBtn.onclick = () => window.open(tool.id === 'weather_forecast' ? '/nowcast' : '/lock', '_blank');
                                 actionsDiv.prepend(webBtn);
                             } else if (!isRunning && webBtn) {
                                 webBtn.remove();
@@ -326,12 +328,10 @@
 
         function toggleLogs(id) {
             document.getElementById(`log-${id}`).classList.toggle('visible');
-            fetchTools();
         }
 
         function toggleExpand(id) {
             document.getElementById(`log-${id}`).classList.toggle('expanded');
-            fetchTools();
         }
 
         async function fetchLogs(id) {

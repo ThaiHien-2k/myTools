@@ -10,3 +10,7 @@ dashboard/processes.json
 network_monitor/discord_msg_log.json
 network_monitor/pc_name_cache.csv
 weather_forecast/latest_status.json
+weather_forecast/discord_state.json
+lock_tracker/lock_tracker.json
+lock_tracker/data/*
+!lock_tracker/data/.gitkeep

@@ -7,6 +7,21 @@
         "has_gui": false
     },
     {
+        "id": "weather_forecast",
+        "name": "Nowcast Weather AI",
+        "directory": "../weather_forecast",
+        "command": "python -u app.py",
+        "has_gui": false
+    }
+    ,
+    {
+        "id": "lock_tracker",
+        "name": "Lock Screen Tracker",
+        "directory": "../lock_tracker",
+        "command": "python -u loctracker.py",
+        "has_gui": false
+    },
+    {
         "id": "scan_network",
         "name": "LAN IP Scanner",
         "directory": "../network_monitor",
@@ -18,13 +33,6 @@
         "name": "Vietlott Data Fetcher",
         "directory": "../vietlott",
         "command": "python -u vietlott.py",
-        "has_gui": false
-    },
-    {
-        "id": "weather_forecast",
-        "name": "Nowcast Weather AI",
-        "directory": "../weather_forecast",
-        "command": "python -u app.py",
         "has_gui": false
     }
 ]

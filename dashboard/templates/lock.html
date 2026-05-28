@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Lock Tracker — Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #080b13;
+            --surface: #0f1724;
+            --surface2: #111827;
+            --border: rgba(255,255,255,0.08);
+            --text: #f8fafc;
+            --muted: #94a3b8;
+            --accent: #38bdf8;
+            --green: #22c55e;
+            --orange: #f59e0b;
+            --red: #f43f5e;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: 'Inter', sans-serif; background: radial-gradient(circle at top left, #111827 0%, #080b13 45%, #05070f 100%); color: var(--text); }
+        a { text-decoration: none; color: inherit; }
+        .header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 22px; background: rgba(15,23,36,0.95); border-bottom: 1px solid rgba(255,255,255,0.07); }
+        .header-title { font-size: 1.15rem; font-weight: 800; letter-spacing: -0.02em; }
+        .header-desc { color: var(--muted); font-size: 0.94rem; margin-top: 6px; }
+        .badge { display: inline-flex; align-items: center; padding: 0.45rem 0.85rem; border-radius: 999px; font-size: 0.84rem; font-weight: 700; background: rgba(56,189,248,0.12); color: var(--accent); }
+        .layout { display: grid; grid-template-columns: 320px 1fr; gap: 14px; padding: 18px; min-height: calc(100vh - 80px); }
+        @media (max-width: 960px) { .layout { grid-template-columns: 1fr; } }
+        .card { background: rgba(15,23,36,0.95); border: 1px solid var(--border); border-radius: 18px; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+        .card h2 { margin: 0; font-size: 1rem; font-weight: 700; }
+        .small { color: var(--muted); font-size: 0.88rem; line-height: 1.5; }
+        .stats-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        @media (max-width: 560px) { .stats-grid { grid-template-columns: 1fr; } }
+        .stat { padding: 16px; border-radius: 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); }
+        .stat-label { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+        .stat-value { font-size: 1.5rem; font-weight: 700; line-height: 1.1; }
+        .stat-note { margin-top: 8px; color: var(--muted); font-size: 0.84rem; }
+        .chart-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .select-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .select-group label { color: var(--muted); font-size: 0.9rem; }
+        .select-group select { border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04); color: var(--text); padding: 10px 12px; }
+        .btn-refresh { border: none; border-radius: 12px; padding: 10px 14px; background: rgba(56,189,248,0.14); color: var(--accent); cursor: pointer; font-weight: 700; }
+        .btn-refresh:hover { background: rgba(56,189,248,0.24); }
+        .chart-wrapper { min-height: 320px; display: grid; place-items: center; }
+        .table-card { overflow: hidden; }
+        .table-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+        .table-scroll { overflow: auto; max-height: 430px; }
+        .data-table { width: 100%; border-collapse: collapse; border-spacing: 0; }
+        .data-table th, .data-table td { padding: 14px 15px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .data-table th { text-align: left; font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+        .data-table td { font-size: 0.95rem; }
+        .detail-card { grid-column: 1 / -1; }
+    </style>
+</head>
+<body>
+<div class="header">
+    <div>
+        <div class="header-title">Lock Screen Tracker</div>
+        <div class="header-desc">Phân tích dữ liệu khóa màn hình theo ngày, tháng và năm với biểu đồ và bảng thống kê tự động cập nhật.</div>
+    </div>
+    <div class="badge" id="statusBadge">Đang chờ dữ liệu</div>
+</div>
+<div class="layout">
+    <div class="card">
+        <h2>Thống kê nhanh</h2>
+        <div class="stats-grid">
+            <div class="stat">
+                <div class="stat-label">Tổng hôm nay</div>
+                <div class="stat-value" id="todayTotal">--</div>
+                <div class="stat-note">Tổng thời gian khóa của ngày hiện tại.</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Phiên hôm nay</div>
+                <div class="stat-value" id="todaySessions">--</div>
+                <div class="stat-note">Số lần khóa/mở màn hình.</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Tuần này</div>
+                <div class="stat-value" id="weekTotal">--</div>
+                <div class="stat-note">Tổng thời gian khóa trong 7 ngày gần nhất.</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Tháng này</div>
+                <div class="stat-value" id="monthTotal">--</div>
+                <div class="stat-note">Tổng thời gian khóa trong tháng hiện tại.</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Năm này</div>
+                <div class="stat-value" id="yearTotal">--</div>
+                <div class="stat-note">Tổng thời gian khóa trong năm hiện tại.</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Tổng ngày</div>
+                <div class="stat-value" id="dayCount">--</div>
+                <div class="stat-note">Số ngày có dữ liệu khóa.</div>
+            </div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="chart-top">
+            <div>
+                <h2 id="chartTitle">Biểu đồ theo ngày</h2>
+                <div class="small" id="lastUpdate">Chưa cập nhật</div>
+            </div>
+            <div class="select-group">
+                <label for="viewMode">Xem theo</label>
+                <select id="viewMode">
+                    <option value="daily">Ngày</option>
+                    <option value="monthly">Tháng</option>
+                    <option value="yearly">Năm</option>
+                </select>
+                <button class="btn-refresh" id="manualRefresh">Làm mới</button>
+            </div>
+        </div>
+        <div class="chart-wrapper">
+            <canvas id="mainChart"></canvas>
+        </div>
+    </div>
+    <div class="card table-card">
+        <div class="table-actions">
+            <h2>Bảng dữ liệu</h2>
+            <div class="small">Cập nhật tự động khi có dữ liệu mới.</div>
+        </div>
+        <div class="table-scroll">
+            <table class="data-table" id="dataTable">
+                <thead>
+                    <tr>
+                        <th>Khoảng</th>
+                        <th>Tổng thời lượng</th>
+                        <th>Số phiên</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card detail-card">
+        <div class="chart-top">
+            <div>
+                <h2>Chi tiết phiên theo ngày</h2>
+                <div class="small" id="selectedDaySummary">Chọn ngày để xem số phiên và thời lượng từng lần.</div>
+            </div>
+            <div class="select-group">
+                <label for="selectedDate">Chọn ngày</label>
+                <select id="selectedDate"></select>
+            </div>
+        </div>
+        <div class="table-scroll">
+            <table class="data-table" id="sessionTable">
+                <thead>
+                    <tr>
+                        <th>Ngày</th>
+                        <th>Khoá</th>
+                        <th>Mở</th>
+                        <th>Thời lượng</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<script>
+const mainChartCtx = document.getElementById('mainChart').getContext('2d');
+const viewMode = document.getElementById('viewMode');
+const refreshButton = document.getElementById('manualRefresh');
+const statusBadge = document.getElementById('statusBadge');
+const lastUpdateText = document.getElementById('lastUpdate');
+const selectedDate = document.getElementById('selectedDate');
+const selectedDaySummary = document.getElementById('selectedDaySummary');
+let mainChart = null;
+let currentTimestamp = null;
+let lockData = null;
+
+function formatDurationSecs(seconds){
+    const s = Math.round(seconds || 0);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    return `${h}h ${m}m ${sec}s`;
+}
+
+function formatDate(dateStr){
+    const parts = dateStr.split('-');
+    if(parts.length !== 3) return dateStr;
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+function formatMonth(month){
+    const [year, mon] = month.split('-');
+    const names = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
+    return `${names[Number(mon) - 1] || month} ${year}`;
+}
+
+function formatYear(year){ return year; }
+
+function setStatus(text, type='info'){
+    statusBadge.textContent = text;
+    if(type === 'error'){
+        statusBadge.style.background = 'rgba(244,63,94,0.14)';
+        statusBadge.style.color = '#f87171';
+    } else {
+        statusBadge.style.background = 'rgba(56,189,248,0.14)';
+        statusBadge.style.color = '#38bdf8';
+    }
+}
+
+function updateSummary(details){
+    document.getElementById('todayTotal').textContent = formatDurationSecs(details.today_total_seconds);
+    document.getElementById('todaySessions').textContent = (details.today_sessions || []).length;
+    const history = details.history || [];
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
+    const thisYear = now.getFullYear().toString();
+    const thisMonth = `${thisYear}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const weekSum = history.reduce((sum, row) => {
+        const d = new Date(row.date);
+        return d >= weekAgo ? sum + row.total_seconds : sum;
+    }, 0);
+    const monthTotal = (details.month_totals || []).find(row => row.month === thisMonth)?.total_seconds || 0;
+    const yearTotal = (details.year_totals || []).find(row => row.year === thisYear)?.total_seconds || 0;
+    document.getElementById('weekTotal').textContent = formatDurationSecs(weekSum);
+    document.getElementById('monthTotal').textContent = formatDurationSecs(monthTotal);
+    document.getElementById('yearTotal').textContent = formatDurationSecs(yearTotal);
+    document.getElementById('dayCount').textContent = details.total_days || 0;
+}
+
+function renderSelectedDayOptions(){
+    if(!lockData || !lockData.days) return;
+    const dates = Object.keys(lockData.days).sort((a, b) => b.localeCompare(a));
+    selectedDate.innerHTML = '';
+    dates.forEach(date => {
+        const opt = document.createElement('option');
+        opt.value = date;
+        opt.textContent = formatDate(date);
+        selectedDate.appendChild(opt);
+    });
+    if(dates.length){
+        const today = new Date().toISOString().slice(0, 10);
+        if(dates.includes(today)){
+            selectedDate.value = today;
+        } else if(!dates.includes(selectedDate.value)){
+            selectedDate.value = dates[0];
+        }
+    }
+}
+
+function renderSelectedDaySummary(date){
+    if(!lockData || !lockData.days || !lockData.days[date]){
+        selectedDaySummary.textContent = 'Không có dữ liệu phiên cho ngày đã chọn.';
+        return;
+    }
+    const day = lockData.days[date];
+    const count = (day.sessions || []).length;
+    const total = formatDurationSecs(day.total_seconds || 0);
+    selectedDaySummary.textContent = `${formatDate(date)}: ${count} phiên khóa, tổng ${total}.`;
+}
+
+function renderSessionDetails(date){
+    const tbody = document.querySelector('#sessionTable tbody');
+    tbody.innerHTML = '';
+    if(!lockData || !lockData.days || !lockData.days[date]){
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="4" class="small">Không có phiên nào cho ngày này.</td>`;
+        tbody.appendChild(tr);
+        return;
+    }
+    const sessions = lockData.days[date].sessions || [];
+    if(!sessions.length){
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="4" class="small">Không có phiên nào cho ngày này.</td>`;
+        tbody.appendChild(tr);
+        return;
+    }
+    sessions.forEach(session => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${formatDate(date)}</td><td>${session.lock_at || ''}</td><td>${session.unlock_at || ''}</td><td>${session.duration_formatted || formatDurationSecs(session.duration_seconds)}</td>`;
+        tbody.appendChild(tr);
+    });
+}
+
+function buildChartData(view){
+    if(!lockData) return { labels: [], values: [], counts: [] };
+    if(view === 'monthly'){
+        const list = lockData.month_totals || [];
+        return {
+            labels: list.map(r => formatMonth(r.month)),
+            values: list.map(r => Math.round(r.total_seconds)),
+            counts: list.map(r => r.session_count || 0)
+        };
+    }
+    if(view === 'yearly'){
+        const list = lockData.year_totals || [];
+        return {
+            labels: list.map(r => formatYear(r.year)),
+            values: list.map(r => Math.round(r.total_seconds)),
+            counts: list.map(r => r.session_count || 0)
+        };
+    }
+    const list = lockData.recent_history.length ? lockData.recent_history : lockData.history || [];
+    return {
+        labels: list.map(r => formatDate(r.date)),
+        values: list.map(r => Math.round(r.total_seconds)),
+        counts: list.map(r => r.session_count || 0)
+    };
+}
+
+function renderChart(view){
+    const data = buildChartData(view);
+    const title = view === 'monthly' ? 'Tổng thời gian khóa theo tháng' : view === 'yearly' ? 'Tổng thời gian khóa theo năm' : 'Tổng thời gian khóa theo ngày';
+    document.getElementById('chartTitle').textContent = title;
+    const color = view === 'yearly' ? 'rgba(34,197,94,0.9)' : view === 'monthly' ? 'rgba(248,113,113,0.9)' : 'rgba(56,189,248,0.9)';
+    const border = view === 'yearly' ? 'rgba(34,197,94,1)' : view === 'monthly' ? 'rgba(248,113,113,1)' : 'rgba(56,189,248,1)';
+    if(mainChart) mainChart.destroy();
+    mainChart = new Chart(mainChartCtx, {
+        type: 'bar',
+        data: {
+            labels: data.labels,
+            datasets: [
+                { label: 'Giây khóa', type: 'bar', data: data.values, backgroundColor: color, borderColor: border, borderWidth: 1, borderRadius: 12, hoverBackgroundColor: border, yAxisID: 'ySeconds' },
+                { label: 'Số phiên', type: 'line', data: data.counts, borderColor: 'rgba(251,146,60,0.95)', backgroundColor: 'rgba(251,146,60,0.3)', borderWidth: 2, pointRadius: 4, pointHoverRadius: 6, fill: false, yAxisID: 'yCount' }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { grid: { display: false }, ticks: { color: '#cbd5e1' } },
+                ySeconds: { type: 'linear', position: 'left', grid: { color: 'rgba(255,255,255,0.08)' }, ticks: { color: '#cbd5e1', callback: value => formatDurationSecs(value) }, title: { display: true, text: 'Tổng thời lượng' } },
+                yCount: { type: 'linear', position: 'right', grid: { display: false }, ticks: { color: '#fbbf24' }, title: { display: true, text: 'Số phiên' }, beginAtZero: true }
+            },
+            plugins: {
+                legend: { display: true, position: 'bottom' },
+                tooltip: { callbacks: { label: ctx => ctx.dataset.yAxisID === 'ySeconds' ? ` ${formatDurationSecs(ctx.parsed.y)}` : ` ${ctx.parsed.y} phiên` } }
+            }
+        }
+    });
+}
+
+function renderTable(view){
+    const tbody = document.querySelector('#dataTable tbody');
+    tbody.innerHTML = '';
+    if(!lockData) return;
+    let rows = [];
+    if(view === 'monthly'){
+        rows = lockData.month_totals || [];
+        rows.forEach(row => { const tr = document.createElement('tr'); tr.innerHTML = `<td>${formatMonth(row.month)}</td><td>${formatDurationSecs(row.total_seconds)}</td><td>${row.session_count}</td>`; tbody.appendChild(tr); });
+    } else if(view === 'yearly'){
+        rows = lockData.year_totals || [];
+        rows.forEach(row => { const tr = document.createElement('tr'); tr.innerHTML = `<td>${formatYear(row.year)}</td><td>${formatDurationSecs(row.total_seconds)}</td><td>${row.session_count}</td>`; tbody.appendChild(tr); });
+    } else {
+        rows = (lockData.history || []).slice().reverse();
+        rows.forEach(row => { const tr = document.createElement('tr'); tr.innerHTML = `<td>${formatDate(row.date)}</td><td>${formatDurationSecs(row.total_seconds)}</td><td>${row.session_count}</td>`; tbody.appendChild(tr); });
+    }
+}
+
+function updateUI(details){
+    lockData = details;
+    updateSummary(details);
+    renderSelectedDayOptions();
+    renderSelectedDaySummary(selectedDate.value);
+    renderSessionDetails(selectedDate.value);
+    renderChart(viewMode.value);
+    renderTable(viewMode.value);
+    const updatedAt = details.last_updated ? new Date(details.last_updated * 1000) : new Date();
+    lastUpdateText.textContent = `Cập nhật: ${updatedAt.toLocaleString('vi-VN')}`;
+    setStatus('Đã cập nhật dữ liệu', 'info');
+}
+
+async function fetchStatus(){
+    try {
+        const res = await fetch('/api/lock/status', { cache: 'no-store' });
+        const data = await res.json();
+        if(data.status !== 'OK'){
+            setStatus(data.message || 'Chưa có dữ liệu', 'error');
+            return;
+        }
+        if(data.timestamp && data.timestamp === currentTimestamp){
+            return;
+        }
+        currentTimestamp = data.timestamp;
+        updateUI(data.details);
+    } catch (error) {
+        console.error(error);
+        setStatus('Không thể lấy dữ liệu', 'error');
+    }
+}
+
+function scheduleRefresh(){
+    setInterval(fetchStatus, 10000);
+}
+
+viewMode.addEventListener('change', () => {
+    if(lockData){ renderChart(viewMode.value); renderTable(viewMode.value); }
+});
+selectedDate.addEventListener('change', () => {
+    if(lockData){ renderSelectedDaySummary(selectedDate.value); renderSessionDetails(selectedDate.value); }
+});
+refreshButton.addEventListener('click', fetchStatus);
+fetchStatus();
+scheduleRefresh();
+</script>
+</body>
+</html>
