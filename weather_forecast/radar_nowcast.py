@@ -22,9 +22,9 @@ PATH_RAIN_SAMPLE_COUNT = 3
 MAX_CLOUD_CANDIDATES = 5
 FULL_ANALYSIS_CANDIDATES = 3
 RISK_HISTORY_LIMIT = 8
-DANGER_ENTER_SCORE = 75
+DANGER_ENTER_SCORE = 80
 DANGER_IMMEDIATE_SCORE = 85
-DANGER_EXIT_SCORE = 58
+DANGER_EXIT_SCORE = 65
 WARNING_ENTER_SCORE = 40
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -66,18 +66,26 @@ def get_wind_data(lat, lon, api_key):
     except:
         return 4.0, 270
 
-def fetch_radar_frame(host, path, xtile, ytile):
-    tile_url = f"{host}{path}/512/{ZOOM_LEVEL}/{xtile}/{ytile}/1/1_1.png"
-    try:
-        res = requests.get(tile_url, timeout=8)
-        if res.status_code == 200:
-            arr = np.frombuffer(res.content, np.uint8)
-            img = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED)
-            if img is not None and img.shape[2] >= 4:
-                return img[:, :, 3]
-    except:
-        pass
-    return None
+def fetch_radar_grid(host, path, center_xtile, center_ytile):
+    grid = np.zeros((1536, 1536), dtype=np.uint8)
+    for dy in [-1, 0, 1]:
+        for dx in [-1, 0, 1]:
+            xtile = center_xtile + dx
+            ytile = center_ytile + dy
+            tile_url = f"{host}{path}/512/{ZOOM_LEVEL}/{xtile}/{ytile}/1/1_1.png"
+            try:
+                res = requests.get(tile_url, timeout=8)
+                if res.status_code == 200:
+                    arr = np.frombuffer(res.content, np.uint8)
+                    img = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED)
+                    if img is not None and len(img.shape) == 3 and img.shape[2] >= 4:
+                        alpha = img[:, :, 3]
+                        grid_y = (dy + 1) * 512
+                        grid_x = (dx + 1) * 512
+                        grid[grid_y:grid_y+512, grid_x:grid_x+512] = alpha
+            except:
+                pass
+    return grid
 
 def find_largest_cloud(alpha_channel):
     if alpha_channel is None:
@@ -296,15 +304,12 @@ def choose_status(risk_score, baseline_rain, distance_km=None, rain_mm=0.0, targ
         and target_lon is not None
         and recent_danger_active(target_lat, target_lon)
     )
-    near_active_rain = distance_km is not None and distance_km <= 5 and rain_mm >= 0.1
     has_recent_pending = (
         target_lat is not None
         and target_lon is not None
         and recent_danger_pending(target_lat, target_lon)
     )
 
-    if baseline_rain >= 0.5 or near_active_rain:
-        return "DANGER", False
     if in_danger_session:
         status = "DANGER" if risk_score >= DANGER_EXIT_SCORE else ("WARNING" if risk_score >= WARNING_ENTER_SCORE else "SAFE")
         return status, False
@@ -381,10 +386,10 @@ def score_nowcast(distance_km, cloud_speed_kph, approach_angle_deg, rain_mm, pat
         reasons.append("Dọc đường mây bay vào có tín hiệu mưa")
 
     if local_rain >= 0.5:
-        risk += 18
+        risk += 40
         reasons.append("Ngay vị trí theo dõi đã có mưa")
     elif local_rain >= 0.1:
-        risk += 8
+        risk += 15
         reasons.append("Ngay vị trí theo dõi có mưa nhẹ")
 
     if prob >= 75:
@@ -475,7 +480,7 @@ def run_analysis(target_lat=10.8231, target_lon=106.6297):
         past_frames = rv_meta["radar"]["past"]
         if len(past_frames) < 2:
             raise Exception("Không đủ khung hình radar.")
-        analysis_frames = past_frames[-6:]
+        analysis_frames = past_frames[-12:]
         frame_old = analysis_frames[0]
         frame_new = past_frames[-1]
         result["details"]["rainviewer_host"] = host
@@ -487,12 +492,12 @@ def run_analysis(target_lat=10.8231, target_lon=106.6297):
 
     # ── 4. Tải & phân tích tile Radar ────────────────────────────────────
     xtile, ytile = deg2num(target_lat, target_lon, ZOOM_LEVEL)
-    uX, uY       = get_pixel_coords(target_lat, target_lon, ZOOM_LEVEL, xtile, ytile)
+    uX, uY       = get_pixel_coords(target_lat, target_lon, ZOOM_LEVEL, xtile - 1, ytile - 1)
     km_per_pixel = (math.cos(math.radians(target_lat)) * 40075) / ((2**ZOOM_LEVEL) * 512)
 
     cloud_tracks = []
     for frame in analysis_frames:
-        alpha = fetch_radar_frame(host, frame["path"], xtile, ytile)
+        alpha = fetch_radar_grid(host, frame["path"], xtile, ytile)
         cloud = find_largest_cloud(alpha)
         if cloud:
             cX, cY, _, area = cloud
@@ -503,7 +508,7 @@ def run_analysis(target_lat=10.8231, target_lon=106.6297):
                 "area": area,
             })
 
-    alpha_new = fetch_radar_frame(host, frame_new["path"], xtile, ytile)
+    alpha_new = fetch_radar_grid(host, frame_new["path"], xtile, ytile)
 
     if alpha_new is None:
         result["status"]  = "ERROR"
@@ -556,7 +561,7 @@ def run_analysis(target_lat=10.8231, target_lon=106.6297):
             cY_new = candidate["y"]
             dist_px = math.sqrt((uX - cX_new)**2 + (uY - cY_new)**2)
             distance_km = dist_px * km_per_pixel
-            cloud_lat, cloud_lon = pixel_to_latlon(cX_new, cY_new, xtile, ytile, ZOOM_LEVEL)
+            cloud_lat, cloud_lon = pixel_to_latlon(cX_new, cY_new, xtile - 1, ytile - 1, ZOOM_LEVEL)
 
             cloud_speed_kph = 0.0
             approach_angle_deg = None
@@ -683,10 +688,10 @@ def run_analysis(target_lat=10.8231, target_lon=106.6297):
         ring_score, ring_reasons = radar_ring_score(radar_rings)
         raw_risk = ring_score
         if baseline_rain >= 0.5:
-            raw_risk += 35
+            raw_risk += 40
             ring_reasons.insert(0, "Ngay vị trí theo dõi đã có mưa")
         elif baseline_rain >= 0.1:
-            raw_risk += 12
+            raw_risk += 15
             ring_reasons.insert(0, "Ngay vị trí theo dõi có mưa nhẹ")
         raw_risk = int(clamp(raw_risk, 0, 100))
         risk_score, risk_trend, risk_delta = smooth_risk_score(raw_risk, target_lat, target_lon)

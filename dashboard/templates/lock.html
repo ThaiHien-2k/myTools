@@ -20,6 +20,7 @@
             --green: #22c55e;
             --orange: #f59e0b;
             --red: #f43f5e;
+            color-scheme: dark;
         }
         * { box-sizing: border-box; }
         body { margin: 0; font-family: 'Inter', sans-serif; background: radial-gradient(circle at top left, #111827 0%, #080b13 45%, #05070f 100%); color: var(--text); }
@@ -42,7 +43,8 @@
         .chart-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
         .select-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .select-group label { color: var(--muted); font-size: 0.9rem; }
-        .select-group select { border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04); color: var(--text); padding: 10px 12px; }
+        .select-group select, .select-group input { border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04); color: var(--text); padding: 10px 12px; }
+        .select-group select option { background: var(--surface); color: var(--text); }
         .btn-refresh { border: none; border-radius: 12px; padding: 10px 14px; background: rgba(56,189,248,0.14); color: var(--accent); cursor: pointer; font-weight: 700; }
         .btn-refresh:hover { background: rgba(56,189,248,0.24); }
         .chart-wrapper { min-height: 320px; display: grid; place-items: center; }
@@ -53,7 +55,6 @@
         .data-table th, .data-table td { padding: 14px 15px; border-bottom: 1px solid rgba(255,255,255,0.06); }
         .data-table th { text-align: left; font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
         .data-table td { font-size: 0.95rem; }
-        .detail-card { grid-column: 1 / -1; }
     </style>
 </head>
 <body>
@@ -146,7 +147,7 @@
             </div>
             <div class="select-group">
                 <label for="selectedDate">Chọn ngày</label>
-                <select id="selectedDate"></select>
+                <input type="date" id="selectedDate">
             </div>
         </div>
         <div class="table-scroll">
@@ -174,6 +175,7 @@ const selectedDate = document.getElementById('selectedDate');
 const selectedDaySummary = document.getElementById('selectedDaySummary');
 let mainChart = null;
 let currentTimestamp = null;
+let currentDayStr = null;
 let lockData = null;
 
 function formatDurationSecs(seconds){
@@ -232,19 +234,17 @@ function updateSummary(details){
 function renderSelectedDayOptions(){
     if(!lockData || !lockData.days) return;
     const dates = Object.keys(lockData.days).sort((a, b) => b.localeCompare(a));
-    selectedDate.innerHTML = '';
-    dates.forEach(date => {
-        const opt = document.createElement('option');
-        opt.value = date;
-        opt.textContent = formatDate(date);
-        selectedDate.appendChild(opt);
-    });
     if(dates.length){
-        const today = new Date().toISOString().slice(0, 10);
-        if(dates.includes(today)){
-            selectedDate.value = today;
-        } else if(!dates.includes(selectedDate.value)){
-            selectedDate.value = dates[0];
+        selectedDate.min = dates[dates.length - 1];
+        selectedDate.max = dates[0];
+        
+        if(!selectedDate.value){
+            const today = new Date().toISOString().slice(0, 10);
+            if(dates.includes(today)){
+                selectedDate.value = today;
+            } else {
+                selectedDate.value = dates[0];
+            }
         }
     }
 }
@@ -379,10 +379,13 @@ async function fetchStatus(){
             setStatus(data.message || 'Chưa có dữ liệu', 'error');
             return;
         }
-        if(data.timestamp && data.timestamp === currentTimestamp){
+        
+        const nowStr = new Date().toISOString().slice(0, 10);
+        if(data.timestamp && data.timestamp === currentTimestamp && currentDayStr === nowStr){
             return;
         }
         currentTimestamp = data.timestamp;
+        currentDayStr = nowStr;
         updateUI(data.details);
     } catch (error) {
         console.error(error);
