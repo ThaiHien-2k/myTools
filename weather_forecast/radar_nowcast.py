@@ -6,6 +6,7 @@ import numpy as np
 import requests
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from vrain_fetcher import get_vrain_rainfall, get_weather_data
 from discord_alert import send_discord_alert
 
@@ -66,25 +67,34 @@ def get_wind_data(lat, lon, api_key):
     except:
         return 4.0, 270
 
+def _fetch_single_tile(host, path, xtile, ytile, dx, dy):
+    tile_url = f"{host}{path}/512/{ZOOM_LEVEL}/{xtile}/{ytile}/1/1_1.png"
+    try:
+        res = requests.get(tile_url, timeout=8)
+        if res.status_code == 200:
+            arr = np.frombuffer(res.content, np.uint8)
+            img = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED)
+            if img is not None and len(img.shape) == 3 and img.shape[2] >= 4:
+                return dx, dy, img[:, :, 3]
+    except:
+        pass
+    return dx, dy, None
+
 def fetch_radar_grid(host, path, center_xtile, center_ytile):
     grid = np.zeros((1536, 1536), dtype=np.uint8)
-    for dy in [-1, 0, 1]:
-        for dx in [-1, 0, 1]:
-            xtile = center_xtile + dx
-            ytile = center_ytile + dy
-            tile_url = f"{host}{path}/512/{ZOOM_LEVEL}/{xtile}/{ytile}/1/1_1.png"
-            try:
-                res = requests.get(tile_url, timeout=8)
-                if res.status_code == 200:
-                    arr = np.frombuffer(res.content, np.uint8)
-                    img = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED)
-                    if img is not None and len(img.shape) == 3 and img.shape[2] >= 4:
-                        alpha = img[:, :, 3]
-                        grid_y = (dy + 1) * 512
-                        grid_x = (dx + 1) * 512
-                        grid[grid_y:grid_y+512, grid_x:grid_x+512] = alpha
-            except:
-                pass
+    with ThreadPoolExecutor(max_workers=9) as executor:
+        futures = []
+        for dy in [-1, 0, 1]:
+            for dx in [-1, 0, 1]:
+                xtile = center_xtile + dx
+                ytile = center_ytile + dy
+                futures.append(executor.submit(_fetch_single_tile, host, path, xtile, ytile, dx, dy))
+        for f in as_completed(futures):
+            dx, dy, alpha = f.result()
+            if alpha is not None:
+                grid_y = (dy + 1) * 512
+                grid_x = (dx + 1) * 512
+                grid[grid_y:grid_y+512, grid_x:grid_x+512] = alpha
     return grid
 
 def find_largest_cloud(alpha_channel):
@@ -495,18 +505,22 @@ def run_analysis(target_lat=10.8231, target_lon=106.6297):
     uX, uY       = get_pixel_coords(target_lat, target_lon, ZOOM_LEVEL, xtile - 1, ytile - 1)
     km_per_pixel = (math.cos(math.radians(target_lat)) * 40075) / ((2**ZOOM_LEVEL) * 512)
 
-    cloud_tracks = []
-    for frame in analysis_frames:
-        alpha = fetch_radar_grid(host, frame["path"], xtile, ytile)
-        cloud = find_largest_cloud(alpha)
+    def process_frame(frame):
+        alpha_local = fetch_radar_grid(host, frame["path"], xtile, ytile)
+        cloud = find_largest_cloud(alpha_local)
         if cloud:
             cX, cY, _, area = cloud
-            cloud_tracks.append({
-                "time": frame["time"],
-                "x": cX,
-                "y": cY,
-                "area": area,
-            })
+            return {"time": frame["time"], "x": cX, "y": cY, "area": area}
+        return None
+
+    cloud_tracks = []
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        results = list(executor.map(process_frame, analysis_frames))
+    
+    for r in results:
+        if r:
+            cloud_tracks.append(r)
+    cloud_tracks.sort(key=lambda t: t["time"])
 
     alpha_new = fetch_radar_grid(host, frame_new["path"], xtile, ytile)
 
@@ -725,16 +739,15 @@ def run_analysis(target_lat=10.8231, target_lon=106.6297):
         reasons = d.get("analysis_reasons", [])
         reasons_str = "\n".join([f"• {r}" for r in reasons]) if reasons else "• Chưa có lý do nổi bật"
         details_str = (
-            f"🌡️ Nhiệt độ: {temp_str} (Cảm giác {d.get('feels_like','--')}°C)\n"
-            f"💧 Độ ẩm: {d.get('humidity','--')}%\n"
-            f"🧠 Điểm rủi ro: {d.get('risk_score', 0)}/100 (tin cậy {int(d.get('confidence', 0) * 100)}%)\n"
-            f"🌧️ Lượng mưa: {d.get('rain_mm', 0):.1f} mm\n"
-            f"🛣️ Mưa dọc đường mây: {d.get('path_rain_mm', 0):.1f} mm\n"
-            f"🎲 Xác suất mưa: {prob_str}\n"
-            f"💨 Tốc độ mây: {d.get('cloud_speed', 0):.1f} km/h\n"
-            f"📏 Khoảng cách: {d.get('cloud_distance', 0):.1f} km\n"
-            f"🧭 Góc tiến vào: {d.get('approach_angle_deg', '--')}°\n"
-            f"📌 Lý do:\n{reasons_str}"
+            "🌡️ **Thời tiết hiện tại:**\n"
+            f"• Nhiệt độ: {temp_str} (Cảm giác {d.get('feels_like','--')}°C) - Độ ẩm: {d.get('humidity','--')}%\n"
+            f"• Xác suất mưa: {prob_str}\n\n"
+            "☁️ **Phân tích Radar:**\n"
+            f"• Rủi ro: **{d.get('risk_score', 0)}/100** (Tin cậy {int(d.get('confidence', 0) * 100)}%)\n"
+            f"• Lượng mưa mây: {d.get('rain_mm', 0):.1f} mm | Dọc đường: {d.get('path_rain_mm', 0):.1f} mm\n"
+            f"• Tốc độ: {d.get('cloud_speed', 0):.1f} km/h | Cách: {d.get('cloud_distance', 0):.1f} km | Góc: {d.get('approach_angle_deg', '--')}°\n\n"
+            "📌 **Lý do chi tiết:**\n"
+            f"{reasons_str}"
         )
         if d.get("eta_minutes"):
             details_str += f"\n⏱️ ETA: {format_eta(d['eta_minutes'])}"

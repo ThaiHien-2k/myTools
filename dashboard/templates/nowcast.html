@@ -7,272 +7,226 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/asset/favicon/weather-forecast-favicon.png?v=2" />
     <link rel="shortcut icon" type="image/png" href="/asset/favicon/weather-forecast-favicon.png?v=2" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- Leaflet.js Map -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         :root {
-            --bg: #0a0f1e;
-            --surface: #111827;
-            --surface2: #1f2937;
-            --border: rgba(255,255,255,0.07);
-            --text: #f9fafb;
-            --muted: #6b7280;
+            --bg: #080d1a;
+            --surface: #0e1525;
+            --surface2: #151e30;
+            --surface3: #1c2840;
+            --border: rgba(255,255,255,0.06);
+            --border2: rgba(255,255,255,0.10);
+            --text: #f0f4ff;
+            --muted: #6b7a99;
             --safe:    #10b981;
             --warning: #f59e0b;
             --danger:  #ef4444;
             --waiting: #6b7280;
             --blue:    #3b82f6;
+            --purple:  #8b5cf6;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { height: 100%; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); }
+        html, body { height: 100%; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); overflow: hidden; }
 
-        /* === HEADER === */
+        /* ── HEADER ── */
         .header {
-            padding: 1rem 1.5rem;
+            height: 56px;
+            padding: 0 1.25rem;
             background: var(--surface);
             border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 1rem;
-            flex-wrap: wrap;
         }
-        .header-left { display: flex; align-items: center; gap: 0.75rem; }
-        .header-title { font-size: 1.3rem; font-weight: 800; background: linear-gradient(135deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .header-left { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
+        .header-title {
+            font-size: 1.1rem; font-weight: 800;
+            background: linear-gradient(135deg, #60a5fa, #a78bfa);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
         .back-btn {
-            padding: 0.4rem 0.9rem;
+            padding: 0.35rem 0.8rem;
             background: var(--surface2);
-            border: 1px solid var(--border);
-            border-radius: 8px;
+            border: 1px solid var(--border2);
+            border-radius: 6px;
             color: var(--muted);
-            font-size: 0.85rem;
+            font-size: 0.82rem;
             cursor: pointer;
             text-decoration: none;
             transition: all 0.2s;
         }
-        .back-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+        .back-btn:hover { color: var(--text); }
 
-        /* === SEARCH BAR === */
+        /* ── SEARCH ── */
         .search-container {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            flex: 1;
-            max-width: 480px;
-            position: relative;
+            display: flex; align-items: center; gap: 0.5rem;
+            flex: 1; max-width: 440px; position: relative;
         }
         .search-input {
-            flex: 1;
-            padding: 0.55rem 1rem;
-            background: var(--surface2);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            color: var(--text);
-            font-size: 0.95rem;
-            font-family: 'Inter', sans-serif;
-            outline: none;
-            transition: border-color 0.2s;
+            flex: 1; padding: 0.45rem 0.9rem;
+            background: var(--surface2); border: 1px solid var(--border2);
+            border-radius: 7px; color: var(--text); font-size: 0.9rem;
+            font-family: 'Inter', sans-serif; outline: none; transition: border-color 0.2s;
         }
         .search-input:focus { border-color: var(--blue); }
         .search-input::placeholder { color: var(--muted); }
         .search-btn {
-            padding: 0.55rem 1rem;
-            background: var(--blue);
-            border: none;
-            border-radius: 8px;
-            color: white;
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s;
-            white-space: nowrap;
+            padding: 0.45rem 1rem; background: var(--blue); border: none;
+            border-radius: 7px; color: white; font-size: 0.85rem; font-weight: 600;
+            cursor: pointer; transition: background 0.2s; white-space: nowrap;
         }
         .search-btn:hover { background: #2563eb; }
         .autocomplete-list {
-            position: absolute;
-            top: calc(100% + 4px);
-            left: 0;
-            right: 0;
-            background: var(--surface2);
-            border: 1px solid rgba(255,255,255,0.12);
-            border-radius: 8px;
-            z-index: 9999;
-            max-height: 280px;
-            overflow-y: auto;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+            position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+            background: var(--surface2); border: 1px solid var(--border2);
+            border-radius: 8px; z-index: 9999; max-height: 260px;
+            overflow-y: auto; box-shadow: 0 12px 40px rgba(0,0,0,0.6);
         }
         .autocomplete-list li {
-            padding: 0.7rem 1rem;
-            cursor: pointer;
-            font-size: 0.9rem;
-            border-bottom: 1px solid var(--border);
-            transition: background 0.15s;
-            list-style: none;
+            padding: 0.65rem 1rem; cursor: pointer; font-size: 0.88rem;
+            border-bottom: 1px solid var(--border); transition: background 0.15s; list-style: none;
         }
         .autocomplete-list li:last-child { border-bottom: none; }
-        .autocomplete-list li:hover { background: rgba(59, 130, 246, 0.2); }
-        .autocomplete-list li em { color: var(--muted); font-style: normal; font-size: 0.8rem; }
+        .autocomplete-list li:hover { background: rgba(59,130,246,0.15); }
+        .autocomplete-list li em { color: var(--muted); font-style: normal; font-size: 0.78rem; }
 
-        /* === LAYOUT === */
+        /* ── LAYOUT ── */
         .main {
             display: grid;
-            grid-template-columns: 340px 1fr;
-            height: calc(100vh - 65px);
-        }
-        @media (max-width: 900px) {
-            .main { grid-template-columns: 1fr; grid-template-rows: 1fr 420px; }
+            grid-template-columns: 320px 1fr;
+            height: calc(100vh - 56px);
         }
 
-        /* === SIDEBAR === */
+        /* ── SIDEBAR ── */
         .sidebar {
             background: var(--surface);
             border-right: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto;
-            padding: 1.25rem;
-            gap: 1rem;
+            display: flex; flex-direction: column;
+            overflow-y: auto; padding: 1rem; gap: 0.75rem;
         }
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-track { background: transparent; }
+        .sidebar::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 4px; }
 
-        /* Status Badge */
-        .status-block { text-align: center; }
+        /* ── STATUS ── */
+        .status-block { text-align: center; padding: 0.25rem 0; }
         .status-badge {
-            display: inline-block;
-            padding: 0.5rem 1.5rem;
-            border-radius: 50px;
-            font-weight: 800;
-            font-size: 1.05rem;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            margin-bottom: 0.75rem;
-            border: 1.5px solid;
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            padding: 0.45rem 1.2rem; border-radius: 50px;
+            font-weight: 800; font-size: 0.95rem;
+            text-transform: uppercase; letter-spacing: 1px;
+            margin-bottom: 0.6rem; border: 1.5px solid;
         }
         .status-badge.SAFE    { color: var(--safe);    border-color: var(--safe);    background: rgba(16,185,129,0.1); }
         .status-badge.WARNING { color: var(--warning); border-color: var(--warning); background: rgba(245,158,11,0.1); animation: pulseW 2s infinite; }
         .status-badge.DANGER  { color: var(--danger);  border-color: var(--danger);  background: rgba(239,68,68,0.1);  animation: pulseD 1.2s infinite; }
         .status-badge.WAITING, .status-badge.ERROR { color: var(--muted); border-color: var(--muted); background: rgba(107,114,128,0.1); }
-
-        @keyframes pulseW {
-            0%,100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.4); }
-            50%      { box-shadow: 0 0 0 12px rgba(245,158,11,0); }
-        }
-        @keyframes pulseD {
-            0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
-            50%      { box-shadow: 0 0 0 16px rgba(239,68,68,0); }
-        }
+        @keyframes pulseW { 0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.3)} 50%{box-shadow:0 0 0 10px rgba(245,158,11,0)} }
+        @keyframes pulseD { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.4)} 50%{box-shadow:0 0 0 14px rgba(239,68,68,0)} }
 
         .status-message {
-            font-size: 0.95rem;
-            line-height: 1.6;
-            color: var(--muted);
-            min-height: 48px;
+            font-size: 0.88rem; line-height: 1.5; color: var(--muted); min-height: 40px;
         }
 
-        /* Stat Cards */
-        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; }
-        .stat {
-            background: var(--surface2);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 0.9rem 0.75rem;
-            text-align: center;
+        /* ── CARD ── */
+        .card {
+            background: var(--surface2); border: 1px solid var(--border);
+            border-radius: 10px; padding: 0.85rem 1rem;
         }
-        .stat-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.35rem; }
-        .stat-val { font-size: 1.5rem; font-weight: 800; line-height: 1; }
-        .stat-unit { font-size: 0.8rem; font-weight: 400; color: var(--muted); margin-left: 2px; }
-
-        /* Weather description bar */
-        .weather-desc-card {
-            background: var(--surface2);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 0.8rem 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-        .weather-desc-icon { font-size: 1.8rem; flex-shrink: 0; }
-        .weather-desc-info { text-align: left; }
-        .weather-desc-title { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
-        .weather-desc-text  { font-size: 1rem; font-weight: 600; margin-top: 0.1rem; }
-
-        /* Rain probability bar */
-        .rain-prob-card {
-            background: var(--surface2);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 0.8rem 1rem;
-        }
-        .rain-prob-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        .rain-prob-label span { font-size: 1rem; font-weight: 800; color: var(--text); }
-        .rain-prob-bar-wrap { background: rgba(255,255,255,0.06); border-radius: 50px; height: 8px; overflow: hidden; }
-        .rain-prob-bar {
-            height: 100%; border-radius: 50px;
-            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
-            transition: width 0.8s ease;
+        .card-label {
+            font-size: 0.68rem; color: var(--muted);
+            text-transform: uppercase; letter-spacing: 0.6px;
+            margin-bottom: 0.55rem; font-weight: 600;
         }
 
-        .risk-card {
-            background: var(--surface2);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 0.9rem 1rem;
+        /* ── WEATHER ROW ── */
+        .weather-row {
+            display: flex; align-items: center; gap: 0.75rem;
         }
-        .risk-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.75rem;
-            margin-bottom: 0.5rem;
+        .wx-icon { font-size: 2rem; flex-shrink: 0; }
+        .wx-info { flex: 1; }
+        .wx-desc { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.2rem; }
+        .wx-sub  { font-size: 0.78rem; color: var(--muted); }
+
+        /* ── STATS GRID ── */
+        .stats-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+        .stats-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 0.5rem; }
+        .stats-2x2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; }
+        .stat-mini {
+            background: var(--surface3); border: 1px solid var(--border);
+            border-radius: 8px; padding: 0.65rem 0.6rem; text-align: center;
+            min-width: 0; overflow: hidden;
         }
-        .risk-title { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
-        .risk-score { font-size: 1.1rem; font-weight: 800; }
-        .risk-bar-wrap { background: rgba(255,255,255,0.06); border-radius: 50px; height: 9px; overflow: hidden; }
-        .risk-bar { height: 100%; width: 0%; border-radius: 50px; background: var(--safe); transition: width 0.8s ease, background 0.25s ease; }
-        .risk-meta { margin-top: 0.55rem; font-size: 0.78rem; color: var(--muted); line-height: 1.45; }
-        .reason-list {
-            margin-top: 0.65rem;
-            display: grid;
-            gap: 0.35rem;
-            font-size: 0.8rem;
-            color: var(--text);
-            line-height: 1.35;
+        .stat-lbl { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 0.3rem; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .stat-val { font-size: 1.2rem; font-weight: 800; line-height: 1; white-space: nowrap; }
+        .stats-4 .stat-val { font-size: 1.0rem; }
+        .stat-unit { font-size: 0.7rem; font-weight: 400; color: var(--muted); }
+        .stat-big .stat-val { font-size: 1.4rem; }
+
+        /* ── PROBABILITY BAR ── */
+        .prob-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem; }
+        .prob-label { font-size: 0.78rem; color: var(--muted); }
+        .prob-value { font-size: 1rem; font-weight: 800; }
+        .bar-wrap { background: rgba(255,255,255,0.06); border-radius: 50px; height: 7px; overflow: hidden; }
+        .bar-fill { height: 100%; border-radius: 50px; background: linear-gradient(90deg,#3b82f6,#8b5cf6); transition: width 0.8s ease; }
+
+        /* ── RISK CARD ── */
+        .risk-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem; }
+        .risk-score-text { font-size: 1.2rem; font-weight: 800; }
+        .risk-badge {
+            font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.55rem;
+            border-radius: 50px; background: rgba(255,255,255,0.07);
         }
+        .risk-bar-wrap { background: rgba(255,255,255,0.06); border-radius: 50px; height: 8px; overflow: hidden; margin-bottom: 0.6rem; }
+        .risk-bar { height: 100%; border-radius: 50px; background: var(--safe); transition: width 0.8s ease, background 0.25s ease; }
+
+        .risk-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem 0.75rem; margin-bottom: 0.6rem; }
+        .risk-meta-item { display: flex; flex-direction: column; gap: 0.1rem; }
+        .risk-meta-lbl { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+        .risk-meta-val { font-size: 0.85rem; font-weight: 600; }
+
+        .reason-list { display: flex; flex-direction: column; gap: 0.3rem; }
         .reason-item {
-            padding-left: 0.6rem;
-            border-left: 2px solid rgba(255,255,255,0.12);
+            font-size: 0.79rem; color: var(--text); line-height: 1.35;
+            padding: 0.35rem 0.6rem; background: rgba(255,255,255,0.03);
+            border-left: 2px solid rgba(255,255,255,0.1); border-radius: 0 4px 4px 0;
         }
+        .reason-item.danger  { border-left-color: var(--danger); }
+        .reason-item.warning { border-left-color: var(--warning); }
 
-        /* Wind compass */
-        .compass-card {
-            background: var(--surface2);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 0.9rem;
-            text-align: center;
+        /* ── RADAR RINGS ── */
+        .rings-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem; }
+        .ring-cell {
+            background: var(--surface3); border: 1px solid var(--border);
+            border-radius: 7px; padding: 0.55rem 0.35rem; text-align: center;
         }
-        .compass-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; }
-        .compass-wrap { display: flex; align-items: center; justify-content: center; gap: 0.75rem; }
-        .compass-arrow {
-            width: 36px; height: 36px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1.5rem;
-            transition: transform 0.8s ease;
+        .ring-km   { font-size: 0.65rem; color: var(--muted); margin-bottom: 0.25rem; }
+        .ring-pct  { font-size: 0.9rem; font-weight: 700; }
+
+        /* ── WIND ── */
+        .wind-row { display: flex; align-items: center; justify-content: center; gap: 1rem; }
+        .wind-arrow {
+            width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+            font-size: 1.3rem; transition: transform 0.8s ease;
+            background: var(--surface3); border-radius: 50%; border: 1px solid var(--border2);
         }
-        .compass-text { font-size: 0.9rem; color: var(--text); }
+        .wind-info { text-align: center; }
+        .wind-speed { font-size: 1.1rem; font-weight: 700; }
+        .wind-dir   { font-size: 0.78rem; color: var(--muted); margin-top: 0.1rem; }
 
-        .update-time { font-size: 0.78rem; color: var(--muted); text-align: center; }
+        /* ── UPDATE TIME ── */
+        .update-time { font-size: 0.75rem; color: var(--muted); text-align: center; padding-top: 0.25rem; }
 
-        /* === MAP === */
+        /* ── DIVIDER ── */
+        .divider { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; opacity: 0.6; }
+
+        /* ── MAP ── */
         #map { width: 100%; height: 100%; }
-
-        /* Leaflet dark overrides */
-        .leaflet-container { background: #0a0f1e !important; }
-        .leaflet-control-attribution { background: rgba(0,0,0,0.6) !important; color: #555 !important; }
-        .leaflet-control-attribution a { color: #555 !important; }
+        .leaflet-container { background: #080d1a !important; }
+        .leaflet-control-attribution { background: rgba(0,0,0,0.6) !important; color: #444 !important; }
+        .leaflet-control-attribution a { color: #444 !important; }
     </style>
 </head>
 <body>
@@ -281,102 +235,144 @@
 <div class="header">
     <div class="header-left">
         <a href="/" class="back-btn">← Dashboard</a>
-        <span class="header-title">Nowcast AI Pro</span>
+        <span class="header-title">⛈️ Nowcast AI Pro</span>
     </div>
-
-    <!-- SEARCH BOX -->
     <div class="search-container" id="searchWrap">
         <input type="text" id="searchInput" class="search-input"
-               placeholder="🔍 Tìm quận/huyện/phường/xã..."
+               placeholder="🔍 Tìm địa điểm..."
                autocomplete="off">
         <button class="search-btn" onclick="doSearch()">Cập nhật</button>
         <ul id="autocompleteList" class="autocomplete-list" style="display:none;"></ul>
     </div>
 </div>
 
-<!-- MAIN LAYOUT -->
+<!-- MAIN -->
 <div class="main">
-
     <!-- SIDEBAR -->
     <div class="sidebar">
+
+        <!-- STATUS -->
         <div class="status-block">
-            <div id="statusBadge" class="status-badge WAITING">ĐANG TẢI</div>
+            <div id="statusBadge" class="status-badge WAITING">⏳ ĐANG TẢI</div>
             <div id="statusMsg" class="status-message">Đang kết nối tới máy chủ AI...</div>
         </div>
 
-        <!-- WEATHER DESC -->
-        <div class="weather-desc-card">
-            <div class="weather-desc-icon" id="wxIcon">🌤️</div>
-            <div class="weather-desc-info">
-                <div class="weather-desc-title">Thời tiết hiện tại</div>
-                <div class="weather-desc-text" id="wxDesc">Đang tải...</div>
+        <!-- WEATHER -->
+        <div class="card">
+            <div class="card-label">☁️ Thời tiết hiện tại</div>
+            <div class="weather-row">
+                <div class="wx-icon" id="wxIcon">🌡️</div>
+                <div class="wx-info">
+                    <div class="wx-desc" id="wxDesc">Đang tải...</div>
+                    <div class="wx-sub" id="wxSub">-- · --</div>
+                </div>
             </div>
         </div>
 
-        <!-- STATS GRID 1: Temperature + Humidity -->
-        <div class="stats-grid">
-            <div class="stat">
-                <div class="stat-label">🌡️ Nhiệt độ</div>
+        <!-- TEMP / HUM / FEELS / PROB -->
+        <div class="stats-4">
+            <div class="stat-mini">
+                <div class="stat-lbl">🌡️ Nhiệt độ</div>
                 <div class="stat-val" id="vTemp">--<span class="stat-unit">°C</span></div>
             </div>
-            <div class="stat">
-                <div class="stat-label">💧 Độ ẩm</div>
+            <div class="stat-mini">
+                <div class="stat-lbl">🤔 Cảm giác</div>
+                <div class="stat-val" id="vFeels">--<span class="stat-unit">°C</span></div>
+            </div>
+            <div class="stat-mini">
+                <div class="stat-lbl">💧 Độ ẩm</div>
                 <div class="stat-val" id="vHum">--<span class="stat-unit">%</span></div>
             </div>
-        </div>
-
-        <!-- RAIN PROBABILITY BAR -->
-        <div class="rain-prob-card">
-            <div class="rain-prob-label">
-                🎲 Xác suất mưa giờ tới
-                <span id="vProb">--%</span>
-            </div>
-            <div class="rain-prob-bar-wrap">
-                <div class="rain-prob-bar" id="vProbBar" style="width:0%"></div>
+            <div class="stat-mini">
+                <div class="stat-lbl">🎲 Mưa</div>
+                <div class="stat-val" id="vProbSmall">--<span class="stat-unit">%</span></div>
             </div>
         </div>
 
-        <div class="risk-card">
+        <!-- RISK SCORE -->
+        <div class="card">
             <div class="risk-head">
-                <div class="risk-title">Điểm rủi ro AI</div>
-                <div class="risk-score" id="vRisk">--/100</div>
+                <div class="card-label" style="margin:0">🧠 Điểm rủi ro AI</div>
+                <div class="risk-score-text" id="vRisk">--/100</div>
             </div>
             <div class="risk-bar-wrap">
-                <div class="risk-bar" id="vRiskBar"></div>
+                <div class="risk-bar" id="vRiskBar" style="width:0%"></div>
             </div>
-            <div class="risk-meta" id="vRiskMeta">Đang chờ tín hiệu radar...</div>
+            <div class="risk-meta-grid">
+                <div class="risk-meta-item">
+                    <div class="risk-meta-lbl">Tin cậy</div>
+                    <div class="risk-meta-val" id="vConf">--%</div>
+                </div>
+                <div class="risk-meta-item">
+                    <div class="risk-meta-lbl">Điểm thô</div>
+                    <div class="risk-meta-val" id="vRawRisk">--/100</div>
+                </div>
+                <div class="risk-meta-item">
+                    <div class="risk-meta-lbl">Xu hướng</div>
+                    <div class="risk-meta-val" id="vTrend">--</div>
+                </div>
+                <div class="risk-meta-item">
+                    <div class="risk-meta-lbl">Góc tiếp cận</div>
+                    <div class="risk-meta-val" id="vAngle">--</div>
+                </div>
+            </div>
             <div class="reason-list" id="vReasons"></div>
         </div>
 
-        <!-- STATS GRID 2: Radar data -->
-        <div class="stats-grid">
-            <div class="stat">
-                <div class="stat-label">🌧️ Lượng mưa</div>
-                <div class="stat-val" id="vRain">--<span class="stat-unit">mm</span></div>
-            </div>
-            <div class="stat">
-                <div class="stat-label">💨 Tốc độ mây</div>
-                <div class="stat-val" id="vSpeed">--<span class="stat-unit">km/h</span></div>
-            </div>
-            <div class="stat">
-                <div class="stat-label">📏 Khoảng cách</div>
-                <div class="stat-val" id="vDist">--<span class="stat-unit">km</span></div>
-            </div>
-            <div class="stat">
-                <div class="stat-label">⏱️ ETA</div>
-                <div class="stat-val" id="vETA">--<span class="stat-unit">phút</span></div>
+        <!-- RADAR -->
+        <div class="card">
+            <div class="card-label" style="margin-bottom:0.65rem">📡 Radar vùng lân cận</div>
+            <div class="rings-grid" id="radarRings">
+                <div class="ring-cell"><div class="ring-km">0–5 km</div><div class="ring-pct" id="ring0">--%</div></div>
+                <div class="ring-cell"><div class="ring-km">5–15 km</div><div class="ring-pct" id="ring1">--%</div></div>
+                <div class="ring-cell"><div class="ring-km">15–30 km</div><div class="ring-pct" id="ring2">--%</div></div>
+                <div class="ring-cell"><div class="ring-km">30–60 km</div><div class="ring-pct" id="ring3">--%</div></div>
             </div>
         </div>
 
-        <div class="compass-card">
-            <div class="compass-label">Hướng gió bề mặt</div>
-            <div class="compass-wrap">
-                <div class="compass-arrow" id="windArrow">🧭</div>
-                <div class="compass-text" id="windText">-- km/h</div>
+        <!-- CLOUD DATA -->
+        <div class="card">
+            <div class="card-label" style="margin-bottom:0.65rem">⛅ Dữ liệu đám mây</div>
+            <div class="stats-2x2">
+                <div class="stat-mini">
+                    <div class="stat-lbl">🌧️ Mưa tại mây</div>
+                    <div class="stat-val" id="vRain">--<span class="stat-unit"> mm</span></div>
+                </div>
+                <div class="stat-mini">
+                    <div class="stat-lbl">🛣️ Mưa dọc đường</div>
+                    <div class="stat-val" id="vPathRain">--<span class="stat-unit"> mm</span></div>
+                </div>
+                <div class="stat-mini">
+                    <div class="stat-lbl">💨 Tốc độ mây</div>
+                    <div class="stat-val" id="vSpeed">--<span class="stat-unit"> km/h</span></div>
+                </div>
+                <div class="stat-mini">
+                    <div class="stat-lbl">📏 Khoảng cách</div>
+                    <div class="stat-val" id="vDist">--<span class="stat-unit"> km</span></div>
+                </div>
+            </div>
+
+            <!-- ETA -->
+            <div style="margin-top:0.65rem; display:flex; justify-content:space-between; align-items:center; padding: 0.5rem 0.6rem; background:var(--surface3); border-radius:8px; border:1px solid var(--border);">
+                <span style="font-size:0.8rem; color:var(--muted);">⏱️ ETA mưa tiến vào</span>
+                <span style="font-size:1rem; font-weight:800;" id="vETA">--</span>
+            </div>
+        </div>
+
+        <!-- WIND -->
+        <div class="card">
+            <div class="card-label" style="margin-bottom:0.6rem">💨 Gió bề mặt</div>
+            <div class="wind-row">
+                <div class="wind-arrow" id="windArrow">↑</div>
+                <div class="wind-info">
+                    <div class="wind-speed" id="windSpeed">-- km/h</div>
+                    <div class="wind-dir" id="windDir">--</div>
+                </div>
             </div>
         </div>
 
         <div class="update-time" id="updateTime">Chưa có dữ liệu</div>
+
     </div>
 
     <!-- MAP -->
@@ -385,65 +381,43 @@
 
 <script>
 // ============================================================
-// LEAFLET MAP SETUP
+// MAP
 // ============================================================
-const map = L.map('map', {
-    center: [10.8231, 106.6297],
-    zoom: 9,
-    zoomControl: true
-});
+const map = L.map('map', { center: [10.8231, 106.6297], zoom: 9, zoomControl: true });
 
-// Base layer — Dark OSM tiles
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
     attribution: '© OpenStreetMap © CARTO',
-    subdomains: 'abcd',
-    maxZoom: 19
+    subdomains: 'abcd', maxZoom: 19
 }).addTo(map);
 
-// === Markers ===
 const homeIcon = L.divIcon({
-    html: `<div style="font-size:28px;filter:drop-shadow(0 0 6px #3b82f6);">🏠</div>`,
-    className: '', iconAnchor: [14, 28]
+    html: `<div style="font-size:26px;filter:drop-shadow(0 0 8px #60a5fa);">🏠</div>`,
+    className: '', iconAnchor: [13, 26]
 });
 const cloudIcon = L.divIcon({
-    html: `<div style="font-size:28px;filter:drop-shadow(0 0 8px #f59e0b);">⛈️</div>`,
-    className: '', iconAnchor: [14, 28]
+    html: `<div style="font-size:26px;filter:drop-shadow(0 0 10px #f59e0b);">⛈️</div>`,
+    className: '', iconAnchor: [13, 26]
 });
 
-let homeMarker = L.marker([10.8231, 106.6297], { icon: homeIcon })
-    .addTo(map)
-    .bindPopup('<b>Vị trí của bạn</b>');
-
-let cloudMarker = null;
-let cloudLine = null;
-let radarLayer = null;
+let homeMarker = L.marker([10.8231, 106.6297], { icon: homeIcon }).addTo(map).bindPopup('<b>Vị trí theo dõi</b>');
+let cloudMarker = null, cloudLine = null, radarLayer = null;
 
 function updateRadarLayer(host, path) {
     if (radarLayer) { map.removeLayer(radarLayer); }
     if (!host || !path) return;
-    const tileUrl = `${host}${path}/512/{z}/{x}/{y}/8/1_1.png`;
-    radarLayer = L.tileLayer(tileUrl, {
-        opacity: 0.7,
-        attribution: '© RainViewer',
-        tileSize: 512,
-        zoomOffset: 0
+    radarLayer = L.tileLayer(`${host}${path}/512/{z}/{x}/{y}/8/1_1.png`, {
+        opacity: 0.65, attribution: '© RainViewer', tileSize: 512, zoomOffset: 0
     }).addTo(map);
 }
 
 function updateCloudMarker(cloudLat, cloudLon, homeLat, homeLon) {
     if (cloudMarker) { map.removeLayer(cloudMarker); cloudMarker = null; }
-    if (cloudLine)   { map.removeLayer(cloudLine);   cloudLine = null;   }
-
+    if (cloudLine)   { map.removeLayer(cloudLine);   cloudLine = null; }
     if (cloudLat == null || cloudLon == null) return;
-
-    cloudMarker = L.marker([cloudLat, cloudLon], { icon: cloudIcon })
-        .addTo(map)
-        .bindPopup('<b>Vùng mây đang phân tích</b>');
-
-    cloudLine = L.polyline(
-        [[homeLat, homeLon], [cloudLat, cloudLon]],
-        { color: '#f59e0b', weight: 2, dashArray: '6,6', opacity: 0.8 }
-    ).addTo(map);
+    cloudMarker = L.marker([cloudLat, cloudLon], { icon: cloudIcon }).addTo(map).bindPopup('<b>Vùng mây phân tích</b>');
+    cloudLine = L.polyline([[homeLat, homeLon], [cloudLat, cloudLon]], {
+        color: '#f59e0b', weight: 2, dashArray: '6,6', opacity: 0.7
+    }).addTo(map);
 }
 
 function moveHome(lat, lon) {
@@ -452,7 +426,7 @@ function moveHome(lat, lon) {
 }
 
 // ============================================================
-// SEARCH — Nominatim Autocomplete
+// SEARCH
 // ============================================================
 let searchTimer = null;
 const searchInput = document.getElementById('searchInput');
@@ -464,16 +438,13 @@ searchInput.addEventListener('input', () => {
     if (q.length < 3) { autocompleteList.style.display = 'none'; return; }
     searchTimer = setTimeout(() => fetchSuggestions(q), 400);
 });
-
 searchInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') doSearch();
     if (e.key === 'Escape') autocompleteList.style.display = 'none';
 });
-
 document.addEventListener('click', (e) => {
-    if (!document.getElementById('searchWrap').contains(e.target)) {
+    if (!document.getElementById('searchWrap').contains(e.target))
         autocompleteList.style.display = 'none';
-    }
 });
 
 async function fetchSuggestions(q) {
@@ -481,9 +452,7 @@ async function fetchSuggestions(q) {
         const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q + ' Việt Nam')}&format=json&limit=6&accept-language=vi&addressdetails=1`;
         const res = await fetch(url, { headers: { 'Accept-Language': 'vi' } });
         const data = await res.json();
-
         if (!data.length) { autocompleteList.style.display = 'none'; return; }
-
         autocompleteList.innerHTML = '';
         data.forEach(item => {
             const li = document.createElement('li');
@@ -497,9 +466,7 @@ async function fetchSuggestions(q) {
             autocompleteList.appendChild(li);
         });
         autocompleteList.style.display = 'block';
-    } catch(e) {
-        console.error('Nominatim error:', e);
-    }
+    } catch(e) { console.error('Nominatim error:', e); }
 }
 
 async function doSearch() {
@@ -507,7 +474,6 @@ async function doSearch() {
     if (!q) return;
     autocompleteList.style.display = 'none';
     await fetchSuggestions(q);
-    // Nếu chỉ có 1 kết quả thì tự động chọn
     const items = autocompleteList.querySelectorAll('li');
     if (items.length === 1) items[0].click();
 }
@@ -516,157 +482,174 @@ async function applyLocation(lat, lon, name) {
     moveHome(lat, lon);
     document.getElementById('statusMsg').textContent = `🔄 Đang quét Radar tại ${name}...`;
     document.getElementById('statusBadge').className = 'status-badge WAITING';
-    document.getElementById('statusBadge').textContent = 'ĐANG QUÉT';
-
+    document.getElementById('statusBadge').textContent = '⏳ ĐANG QUÉT';
     try {
         await fetch('/api/nowcast/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ target_lat: lat, target_lon: lon, location_name: name })
         });
-        // Worker sẽ quét lại trong ~2 giây. Đợi rồi fetch status mới
         setTimeout(fetchStatus, 5000);
-    } catch(e) {
-        console.error('Settings error:', e);
-    }
+    } catch(e) { console.error('Settings error:', e); }
 }
 
-// Load settings hiện tại khi mở trang
 async function loadCurrentSettings() {
     try {
         const res = await fetch('/api/nowcast/settings');
         const data = await res.json();
         moveHome(data.target_lat, data.target_lon);
-        searchInput.placeholder = `🔍 ${data.location_name || 'Tìm quận/huyện/phường/xã...'}`;
+        searchInput.placeholder = `🔍 ${data.location_name || 'Tìm địa điểm...'}`;
     } catch(e) {}
 }
 
 // ============================================================
-// STATUS POLLING
+// HELPERS
 // ============================================================
-function setStatText(id, val, decimals = 0, suffix = '') {
-    const el = document.getElementById(id);
-    if (!el) return;
-    const num = parseFloat(val);
-    el.innerHTML = `${isNaN(num) ? '--' : num.toFixed(decimals)}<span class="stat-unit">${suffix}</span>`;
+const DIR_LABELS = ['Bắc','ĐB','Đông','ĐN','Nam','TN','Tây','TB'];
+function degToCompass(deg) { return DIR_LABELS[Math.round(deg / 45) % 8]; }
+
+function ringColor(ratio) {
+    if (ratio >= 0.6) return '#ef4444';
+    if (ratio >= 0.3) return '#f59e0b';
+    if (ratio > 0)    return '#3b82f6';
+    return '#6b7a99';
 }
 
-const DIRECTION_LABELS = ['N','NE','E','SE','S','SW','W','NW'];
-function degToCompass(deg) { return DIRECTION_LABELS[Math.round(deg / 45) % 8]; }
+function getWxIcon(desc) {
+    const d = (desc || '').toLowerCase();
+    // English OWM descriptions
+    if (d.includes('thunderstorm') || d.includes('storm')) return '⛈️';
+    if (d.includes('drizzle'))   return '🌦️';
+    if (d.includes('shower'))    return '🌧️';
+    if (d.includes('heavy rain')) return '🌧️';
+    if (d.includes('rain'))      return '🌧️';
+    if (d.includes('snow'))      return '❄️';
+    if (d.includes('fog') || d.includes('mist') || d.includes('haze')) return '🌫️';
+    if (d.includes('clear'))     return '☀️';
+    if (d.includes('overcast'))  return '☁️';
+    if (d.includes('broken clouds')) return '⛅';
+    if (d.includes('scattered')) return '⛅';
+    if (d.includes('few clouds')) return '🌤️';
+    // Vietnamese descriptions
+    if (d.includes('giông') || d.includes('bão')) return '⛈️';
+    if (d.includes('tạnh') || d.includes('quang')) return '☀️';
+    if (d.includes('phùn'))  return '🌦️';
+    if (d.includes('rào') || d.includes('to') || d.includes('dày')) return '🌧️';
+    if (d.includes('mưa'))   return '🌦️';
+    if (d.includes('sương mù')) return '🌫️';
+    if (d.includes('nhiều mây') || d.includes('u ám') || d.includes('đen') || d.includes('overcast')) return '☁️';
+    if (d.includes('rải rác') || d.includes('ít mây') || d.includes('vừa')) return '⛅';
+    if (d.includes('mây'))   return '⛅';
+    return '🌡️';
+}
 
+function formatETA(minutes) {
+    if (minutes == null || isNaN(parseFloat(minutes))) return '--';
+    const m = Math.round(parseFloat(minutes));
+    if (m === 0) return 'Đang mưa 🌧️';
+    const h = Math.floor(m / 60), mm = m % 60;
+    return h > 0 ? `${h}h ${mm < 10 ? '0' + mm : mm}p` : `${mm} phút`;
+}
+
+// ============================================================
+// STATUS
+// ============================================================
 async function fetchStatus() {
     try {
-        const res = await fetch('/api/nowcast/status');
+        const res  = await fetch('/api/nowcast/status');
         const data = await res.json();
-        const d = data.details || {};
+        const d    = data.details || {};
 
-        // Status badge
+        // Badge
         const badge = document.getElementById('statusBadge');
-        const statusMap = { SAFE:'AN TOÀN', WARNING:'CẢNH BÁO', DANGER:'KHẨN CẤP', WAITING:'ĐANG ĐỢI', ERROR:'LỖI' };
+        const statusEmoji = { SAFE: '✅', WARNING: '🌧️', DANGER: '⛈️', WAITING: '⏳', ERROR: '❌' };
+        const statusLabel = { SAFE: 'AN TOÀN', WARNING: 'CẢNH BÁO', DANGER: 'KHẨN CẤP', WAITING: 'ĐANG ĐỢI', ERROR: 'LỖI' };
         badge.className = `status-badge ${data.status}`;
-        badge.textContent = statusMap[data.status] || data.status;
-
+        badge.textContent = `${statusEmoji[data.status] || ''} ${statusLabel[data.status] || data.status}`;
         document.getElementById('statusMsg').textContent = data.message || '';
 
-        // === Thông số thời tiết đầy đủ ===
-        const temp = d.temperature != null ? d.temperature : null;
-        const fl   = d.feels_like  != null ? d.feels_like  : null;
-        const hum  = d.humidity    != null ? d.humidity    : null;
-        const prob = d.precipitation_probability ?? 0;
+        // Weather
         const desc = d.weather_desc || 'Không rõ';
+        const temp = d.temperature;
+        const fl   = d.feels_like;
+        const hum  = d.humidity;
+        const prob = d.precipitation_probability ?? 0;
 
-        // Chọn icon theo mô tả
-        const iconMap = {
-            'quang': '☀️', 'ít mây': '🌤️', 'rải rác': '⛅', 'nhiều mây': '☁️',
-            'sương': '🌫️', 'phùn': '🌦️', 'nhẹ': '🌦️', 'vừa': '🌧️',
-            'to': '🌧️', 'rào': '🌧️', 'giông': '⛈️', 'đá': '⛈️', 'tạnh': '☀️'
-        };
-        let icon = '🌡️';
-        const descLower = desc.toLowerCase();
-        for (const [k, v] of Object.entries(iconMap)) {
-            if (descLower.includes(k)) { icon = v; break; }
-        }
-        document.getElementById('wxIcon').textContent = icon;
+        document.getElementById('wxIcon').textContent = getWxIcon(desc);
         document.getElementById('wxDesc').textContent = desc;
+        document.getElementById('wxSub').textContent  = `Gió ${(d.wind_speed || 0).toFixed(1)} km/h · ${data.location_name || ''}`;
 
-        if (temp != null) {
-            document.getElementById('vTemp').innerHTML =
-                `${temp.toFixed(1)}<span class="stat-unit">°C</span>${fl != null ? ` <span style="font-size:0.75rem;color:var(--muted)">(${fl.toFixed(0)}°)</span>` : ''}`;
-        }
-        if (hum != null) {
-            document.getElementById('vHum').innerHTML = `${hum}<span class="stat-unit">%</span>`;
-        }
-        document.getElementById('vProb').textContent    = `${prob}%`;
-        document.getElementById('vProbBar').style.width = `${prob}%`;
+        // Temp / Feels / Hum / Prob
+        document.getElementById('vTemp').innerHTML   = temp != null ? `${parseFloat(temp).toFixed(1)}<span class="stat-unit">°C</span>` : `--<span class="stat-unit">°C</span>`;
+        document.getElementById('vFeels').innerHTML  = fl   != null ? `${parseFloat(fl).toFixed(1)}<span class="stat-unit">°C</span>`  : `--<span class="stat-unit">°C</span>`;
+        document.getElementById('vHum').innerHTML    = hum  != null ? `${hum}<span class="stat-unit">%</span>`                          : `--<span class="stat-unit">%</span>`;
+        document.getElementById('vProbSmall').innerHTML = `${prob}<span class="stat-unit">%</span>`;
 
-        // Đổi màu thanh xác suất mưa
-        const bar = document.getElementById('vProbBar');
-        if (prob >= 70)      bar.style.background = 'linear-gradient(90deg,#f59e0b,#ef4444)';
-        else if (prob >= 40) bar.style.background = 'linear-gradient(90deg,#3b82f6,#f59e0b)';
-        else                 bar.style.background = 'linear-gradient(90deg,#3b82f6,#8b5cf6)';
-
-        const risk = Math.max(0, Math.min(100, parseInt(d.risk_score ?? 0, 10)));
+        // Risk
+        const risk       = Math.max(0, Math.min(100, parseInt(d.risk_score ?? 0, 10)));
+        const rawRisk    = parseInt(d.raw_risk_score ?? risk, 10);
         const confidence = Math.round((parseFloat(d.confidence ?? 0) || 0) * 100);
+        const trendMap   = { rising: '↑ Tăng', falling: '↓ Giảm', stable: '→ Ổn định' };
+        const trend      = trendMap[d.risk_trend] || '→ Ổn định';
+        const angle      = d.approach_angle_deg != null ? `${parseFloat(d.approach_angle_deg).toFixed(0)}°` : '--';
+
+        document.getElementById('vRisk').textContent    = `${risk}/100`;
+        document.getElementById('vConf').textContent    = `${confidence}%`;
+        document.getElementById('vRawRisk').textContent = `${rawRisk}/100`;
+        document.getElementById('vTrend').textContent   = trend;
+        document.getElementById('vAngle').textContent   = angle;
+
         const riskBar = document.getElementById('vRiskBar');
-        document.getElementById('vRisk').textContent = `${risk}/100`;
         riskBar.style.width = `${risk}%`;
-        if (risk >= 70)      riskBar.style.background = 'linear-gradient(90deg,#f59e0b,#ef4444)';
+        if      (risk >= 70) riskBar.style.background = 'linear-gradient(90deg,#f59e0b,#ef4444)';
         else if (risk >= 40) riskBar.style.background = 'linear-gradient(90deg,#3b82f6,#f59e0b)';
         else                 riskBar.style.background = 'linear-gradient(90deg,#10b981,#3b82f6)';
 
-        const pathRain = parseFloat(d.path_rain_mm ?? 0) || 0;
-        const angle = d.approach_angle_deg == null ? '--' : `${parseFloat(d.approach_angle_deg).toFixed(0)}°`;
-        const rawRisk = parseInt(d.raw_risk_score ?? risk, 10);
-        const trendMap = { rising: 'đang tăng', falling: 'đang giảm', stable: 'ổn định' };
-        const trend = trendMap[d.risk_trend] || 'ổn định';
-        const rings = Array.isArray(d.radar_rings) ? d.radar_rings : [];
-        const nearestWetRing = rings.find(r => (parseFloat(r.rainy_ratio) || 0) > 0);
-        const ringText = nearestWetRing
-            ? ` · Radar ${nearestWetRing.range_km}km ${(nearestWetRing.rainy_ratio * 100).toFixed(1)}%`
-            : '';
-        document.getElementById('vRiskMeta').textContent =
-            `Tin cậy ${confidence}% · Thô ${rawRisk}/100 · ${trend} · Góc ${angle} · Mưa dọc đường ${pathRain.toFixed(1)} mm${ringText}`;
-
+        // Reasons
         const reasonsEl = document.getElementById('vReasons');
-        const reasons = Array.isArray(d.analysis_reasons) ? d.analysis_reasons : [];
-        reasonsEl.innerHTML = reasons.slice(0, 4)
-            .map(reason => `<div class="reason-item">${reason}</div>`)
-            .join('');
+        const reasons   = Array.isArray(d.analysis_reasons) ? d.analysis_reasons : [];
+        reasonsEl.innerHTML = reasons.slice(0, 5).map(r => {
+            const cls = risk >= 70 ? 'danger' : risk >= 40 ? 'warning' : '';
+            return `<div class="reason-item ${cls}">${r}</div>`;
+        }).join('');
 
-        setStatText('vRain',  d.rain_mm,         1, 'mm');
-        setStatText('vSpeed', d.cloud_speed,      1, 'km/h');
-        setStatText('vDist',  d.cloud_distance,   1, 'km');
-        // Format ETA as XhYp or Yp
-        const etaVal = document.getElementById('vETA');
-        if (etaVal) {
-            const minutes = d.eta_minutes;
-            if (minutes == null || isNaN(parseFloat(minutes))) {
-                etaVal.innerHTML = `--`;
+        // Radar Rings
+        const rings = Array.isArray(d.radar_rings) ? d.radar_rings : [];
+        ['ring0','ring1','ring2','ring3'].forEach((id, i) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const ring = rings[i];
+            if (ring) {
+                const pct = Math.round((ring.rainy_ratio || 0) * 100);
+                el.textContent = `${pct}%`;
+                el.style.color = ringColor(ring.rainy_ratio || 0);
             } else {
-                const h = Math.floor(minutes / 60);
-                const m = Math.round(minutes % 60);
-                if (h > 0) {
-                    etaVal.innerHTML = `${h}<span class="stat-unit">h</span>${m < 10 ? '0' + m : m}<span class="stat-unit">p</span>`;
-                } else {
-                    etaVal.innerHTML = `${m}<span class="stat-unit">p</span>`;
-                }
+                el.textContent = '--%';
+                el.style.color = 'var(--muted)';
             }
-        }
+        });
 
-        // Wind compass
+        // Cloud data
+        const fmt1 = (v) => v != null ? parseFloat(v).toFixed(1) : '--';
+        document.getElementById('vRain').innerHTML     = `${fmt1(d.rain_mm)}<span class="stat-unit">mm</span>`;
+        document.getElementById('vPathRain').innerHTML = `${fmt1(d.path_rain_mm)}<span class="stat-unit">mm</span>`;
+        document.getElementById('vSpeed').innerHTML    = `${fmt1(d.cloud_speed)}<span class="stat-unit">km/h</span>`;
+        document.getElementById('vDist').innerHTML     = `${fmt1(d.cloud_distance)}<span class="stat-unit">km</span>`;
+        document.getElementById('vETA').textContent   = formatETA(d.eta_minutes);
+
+        // Wind
         if (d.wind_deg != null) {
             document.getElementById('windArrow').style.transform = `rotate(${d.wind_deg}deg)`;
-            document.getElementById('windArrow').textContent = '↑';
-            document.getElementById('windText').textContent =
-                `${(d.wind_speed || 0).toFixed(1)} km/h — ${degToCompass(d.wind_deg)}`;
+            document.getElementById('windSpeed').textContent = `${(d.wind_speed || 0).toFixed(1)} km/h`;
+            document.getElementById('windDir').textContent   = degToCompass(d.wind_deg);
         }
 
-        // Radar tile layer
+        // Radar tile
         if (d.rainviewer_host && d.rainviewer_path) {
             updateRadarLayer(d.rainviewer_host, d.rainviewer_path);
         }
 
-        // Cloud marker
+        // Markers
         const tLat = d.target_lat || 10.8231;
         const tLon = d.target_lon || 106.6297;
         updateCloudMarker(d.cloud_lat, d.cloud_lon, tLat, tLon);

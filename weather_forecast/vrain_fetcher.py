@@ -1,32 +1,34 @@
 import requests
 import math
 
+OWM_API_KEY = "caba72153195e76e835b0e35a82e4edb"
+
 def get_vrain_rainfall(lat, lon):
     """
-    Lấy lượng mưa hiện tại từ Open-Meteo (miễn phí, chính xác).
+    Lấy lượng mưa hiện tại từ OpenWeatherMap (chính xác hơn cho real-time).
     """
     url = (
-        f"https://api.open-meteo.com/v1/forecast"
-        f"?latitude={lat}&longitude={lon}"
-        f"&current=precipitation,rain,showers"
-        f"&timezone=Asia%2FBangkok"
+        f"https://api.openweathermap.org/data/2.5/weather"
+        f"?lat={lat}&lon={lon}&appid={OWM_API_KEY}&units=metric"
     )
     try:
         res = requests.get(url, timeout=5)
         if res.status_code == 200:
             data = res.json()
-            precip = data.get("current", {}).get("precipitation", 0.0)
+            # OpenWeatherMap trả về lượng mưa trong 1h qua dưới dạng rain.1h
+            rain = data.get("rain", {})
+            precip = rain.get("1h", 0.0)
             return float(precip)
     except Exception as e:
-        print(f"⚠️ Lỗi lấy lượng mưa: {e}")
+        print(f"⚠️ Lỗi lấy lượng mưa (OWM): {e}")
     return 0.0
 
 def get_weather_data(lat, lon):
     """
-    Lấy dữ liệu thời tiết đầy đủ từ Open-Meteo:
+    Lấy dữ liệu thời tiết đầy đủ từ OpenWeatherMap:
     - Nhiệt độ hiện tại (°C)
     - Lượng mưa hiện tại (mm)
-    - Xác suất mưa trong 1h tới (%)
+    - Xác suất mưa trong giờ tới (%)
     - Cảm giác nhiệt (°C)
     - Độ ẩm (%)
     """
@@ -40,48 +42,43 @@ def get_weather_data(lat, lon):
         "weather_desc": "Không rõ",
     }
 
-    # Bảng mã WMO weather code sang mô tả tiếng Việt
-    wmo_desc = {
-        0: "Trời quang", 1: "Ít mây", 2: "Mây rải rác", 3: "Nhiều mây",
-        45: "Sương mù", 48: "Sương mù đóng băng",
-        51: "Mưa phùn nhẹ", 53: "Mưa phùn vừa", 55: "Mưa phùn dày",
-        61: "Mưa nhẹ", 63: "Mưa vừa", 65: "Mưa to",
-        80: "Mưa rào nhẹ", 81: "Mưa rào vừa", 82: "Mưa rào mạnh",
-        95: "Giông bão", 96: "Giông kèm mưa đá nhẹ", 99: "Giông kèm mưa đá to",
-    }
-
     try:
-        url = (
-            f"https://api.open-meteo.com/v1/forecast"
-            f"?latitude={lat}&longitude={lon}"
-            f"&current=temperature_2m,apparent_temperature,relative_humidity_2m,"
-            f"precipitation,weather_code"
-            f"&hourly=precipitation_probability"
-            f"&timezone=Asia%2FBangkok"
-            f"&forecast_hours=1"
+        # Lấy thời tiết hiện tại
+        url_curr = (
+            f"https://api.openweathermap.org/data/2.5/weather"
+            f"?lat={lat}&lon={lon}&appid={OWM_API_KEY}&units=metric&lang=vi"
         )
-        res = requests.get(url, timeout=6)
-        if res.status_code == 200:
-            data = res.json()
-            cur = data.get("current", {})
-            hourly = data.get("hourly", {})
-
-            result["temperature"] = cur.get("temperature_2m")
-            result["feels_like"]  = cur.get("apparent_temperature")
-            result["humidity"]    = cur.get("relative_humidity_2m")
-            result["precipitation"] = float(cur.get("precipitation", 0.0))
+        res_curr = requests.get(url_curr, timeout=6)
+        if res_curr.status_code == 200:
+            data_curr = res_curr.json()
+            main_data = data_curr.get("main", {})
             
-            wcode = cur.get("weather_code", 0)
-            result["weather_code"] = wcode
-            result["weather_desc"] = wmo_desc.get(wcode, f"Mã {wcode}")
+            result["temperature"] = main_data.get("temp")
+            result["feels_like"] = main_data.get("feels_like")
+            result["humidity"] = main_data.get("humidity")
+            
+            rain = data_curr.get("rain", {})
+            result["precipitation"] = float(rain.get("1h", 0.0))
+            
+            if "weather" in data_curr and len(data_curr["weather"]) > 0:
+                w = data_curr["weather"][0]
+                result["weather_code"] = w.get("id", 0)
+                result["weather_desc"] = w.get("description", "Không rõ").capitalize()
 
-            # Xác suất mưa giờ tiếp theo
-            prob_list = hourly.get("precipitation_probability", [])
-            if prob_list:
-                result["precipitation_probability"] = int(prob_list[0])
+        # Lấy dự báo để lấy xác suất mưa (pop)
+        url_fc = (
+            f"https://api.openweathermap.org/data/2.5/forecast"
+            f"?lat={lat}&lon={lon}&appid={OWM_API_KEY}&units=metric&cnt=2"
+        )
+        res_fc = requests.get(url_fc, timeout=6)
+        if res_fc.status_code == 200:
+            data_fc = res_fc.json()
+            if "list" in data_fc and len(data_fc["list"]) > 0:
+                pop = data_fc["list"][0].get("pop", 0.0)
+                result["precipitation_probability"] = int(pop * 100)
 
     except Exception as e:
-        print(f"⚠️ Lỗi lấy dữ liệu thời tiết: {e}")
+        print(f"⚠️ Lỗi lấy dữ liệu thời tiết (OWM): {e}")
 
     return result
 
