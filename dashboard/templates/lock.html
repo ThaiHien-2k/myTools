@@ -8,6 +8,7 @@
     <link rel="shortcut icon" type="image/png" href="/asset/favicon/lock-tracker-favicon.png?v=2" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     <style>
         :root {
             --bg: #080b13;
@@ -177,6 +178,7 @@ let mainChart = null;
 let currentTimestamp = null;
 let currentDayStr = null;
 let lockData = null;
+let lastRenderedDay = null;
 
 function formatDurationSecs(seconds){
     const s = Math.round(seconds || 0);
@@ -237,15 +239,22 @@ function renderSelectedDayOptions(){
     if(dates.length){
         selectedDate.min = dates[dates.length - 1];
         selectedDate.max = dates[0];
-        
-        if(!selectedDate.value){
-            const today = new Date().toISOString().slice(0, 10);
+        const today = new Date().toISOString().slice(0, 10);
+        const isNewDay = lastRenderedDay && lastRenderedDay !== today;
+        if(!selectedDate.value || isNewDay){
             if(dates.includes(today)){
                 selectedDate.value = today;
             } else {
                 selectedDate.value = dates[0];
             }
+            if(isNewDay){
+                // Clear bảng phiên khi sang ngày mới
+                const tbody = document.querySelector('#sessionTable tbody');
+                tbody.innerHTML = '';
+                selectedDaySummary.textContent = 'Chọn ngày để xem số phiên và thời lượng từng lần.';
+            }
         }
+        lastRenderedDay = today;
     }
 }
 
@@ -321,8 +330,40 @@ function renderChart(view){
         data: {
             labels: data.labels,
             datasets: [
-                { label: 'Giây khóa', type: 'bar', data: data.values, backgroundColor: color, borderColor: border, borderWidth: 1, borderRadius: 12, hoverBackgroundColor: border, yAxisID: 'ySeconds' },
-                { label: 'Số phiên', type: 'line', data: data.counts, borderColor: 'rgba(251,146,60,0.95)', backgroundColor: 'rgba(251,146,60,0.3)', borderWidth: 2, pointRadius: 4, pointHoverRadius: 6, fill: false, yAxisID: 'yCount' }
+                {
+                    label: 'Giây khóa',
+                    type: 'bar',
+                    data: data.values,
+                    backgroundColor: color,
+                    borderColor: border,
+                    borderWidth: 1,
+                    borderRadius: 12,
+                    hoverBackgroundColor: border,
+                    yAxisID: 'ySeconds',
+                    order: 2,
+                    datalabels: { display: false }
+                },
+                {
+                    label: 'Số phiên',
+                    type: 'line',
+                    data: data.counts,
+                    borderColor: 'rgba(251,146,60,0.95)',
+                    backgroundColor: 'rgba(251,146,60,0.3)',
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    fill: false,
+                    yAxisID: 'yCount',
+                    order: 1,
+                    datalabels: {
+                        display: true,
+                        align: 'top',
+                        anchor: 'end',
+                        color: '#fbbf24',
+                        font: { weight: 'bold', size: 11 },
+                        formatter: (value) => value > 0 ? value : ''
+                    }
+                }
             ]
         },
         options: {
@@ -335,9 +376,11 @@ function renderChart(view){
             },
             plugins: {
                 legend: { display: true, position: 'bottom' },
-                tooltip: { callbacks: { label: ctx => ctx.dataset.yAxisID === 'ySeconds' ? ` ${formatDurationSecs(ctx.parsed.y)}` : ` ${ctx.parsed.y} phiên` } }
+                tooltip: { callbacks: { label: ctx => ctx.dataset.yAxisID === 'ySeconds' ? ` ${formatDurationSecs(ctx.parsed.y)}` : ` ${ctx.parsed.y} phiên` } },
+                datalabels: {}
             }
-        }
+        },
+        plugins: [ChartDataLabels]
     });
 }
 

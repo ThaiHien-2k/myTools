@@ -73,17 +73,6 @@ def scan_network():
     print("-" * 50)
     
     found_devices = {}
-    
-    # Load data cũ để không ghi đè mất
-    if os.path.exists(PC_NAME_CACHE_FILE):
-        try:
-            with open(PC_NAME_CACHE_FILE, "r", encoding="utf-8") as f:
-                reader = csv.reader(f)
-                for row in reader:
-                    if len(row) == 2:
-                        found_devices[row[0]] = row[1]
-        except:
-            pass
 
     # Tạo danh sách IP để quét (bỏ IP kết thúc bằng .0 và .255)
     ips_to_scan = [str(ip) for ip in network.hosts()]
@@ -99,13 +88,20 @@ def scan_network():
                 found_devices[ip] = name
                 
     print("-" * 50)
-    print(f"[*] Tổng cộng có {len(found_devices)} thiết bị đã có tên trong danh sách.")
     
-    # Ghi toàn bộ ra file CSV
+    # Sắp xếp theo IP tăng dần
+    sorted_devices = sorted(found_devices.items(), key=lambda x: ipaddress.ip_address(x[0]))
+    
+    print(f"[*] Tổng cộng có {len(sorted_devices)} thiết bị đang online có tên (lần quét này):")
+    for ip, name in sorted_devices:
+        print(f"    {ip:<15} -> {name}")
+    print("-" * 50)
+    
+    # Ghi toàn bộ ra file CSV (đã sắp xếp)
     try:
         with open(PC_NAME_CACHE_FILE, "w", encoding="utf-8", newline="") as f:
             writer = csv.writer(f)
-            for ip, name in found_devices.items():
+            for ip, name in sorted_devices:
                 writer.writerow([ip, name])
         print(f"[*] Đã lưu thành công vào file: {PC_NAME_CACHE_FILE}")
     except Exception as e:
