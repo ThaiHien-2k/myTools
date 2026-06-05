@@ -439,9 +439,9 @@ def restart_dashboard():
         
         bat_content = f"""@echo off
 :: Cho 1 giay de API tra ve response
-timeout /t 1 /nobreak >nul
-:: Kill toan bo cay process cua dashboard cu (dam bao nha port 1101)
-taskkill /F /T /PID {pid} >nul 2>&1
+ping 127.0.0.1 -n 2 > nul
+:: Kill python process cua dashboard cu
+taskkill /F /PID {pid} >nul 2>&1
 :: Chuyen ve thu muc goc va start lai
 cd /d "{root_dir}"
 if exist "start_hidden.vbs" (
@@ -457,11 +457,72 @@ del "%~f0"
         with open(bat_path, "w", encoding='utf-8') as f:
             f.write(bat_content)
         
-        # B3: Chay file batch doc lap
-        subprocess.Popen(bat_path, creationflags=subprocess.DETACHED_PROCESS)
+        # B3: Chay file batch doc lap an cua so terminal
+        CREATE_NO_WINDOW = 0x08000000
+        subprocess.Popen(['cmd.exe', '/c', bat_path], creationflags=CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP)
 
     threading.Thread(target=do_restart, daemon=True).start()
     return jsonify({"success": True, "message": "Dashboard đang restart..."})
+
+# ======================================================================
+# LOTTERY SCRAPER UI + API
+# ======================================================================
+LOTTERY_DIR = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../lottery_scraper'))
+
+@app.route('/lottery')
+def lottery_ui():
+    return render_template('lottery.html')
+
+@app.route('/api/lottery/data', methods=['GET'])
+def get_lottery_data():
+    quarter = request.args.get('quarter')
+    year = request.args.get('year')
+    region = request.args.get('region')
+    exact_date = request.args.get('exact_date')
+    
+    import datetime
+    
+    if exact_date:
+        try:
+            date_obj = datetime.datetime.strptime(exact_date, '%Y-%m-%d')
+            year = str(date_obj.year)
+            quarter = str((date_obj.month - 1) // 3 + 1)
+        except ValueError:
+            pass
+    elif not quarter or not year:
+        # Default to current
+        now = datetime.datetime.now()
+        year = str(now.year)
+        quarter = str((now.month - 1) // 3 + 1)
+        
+    csv_file = os.path.join(LOTTERY_DIR, 'data', f'lottery_{year}_Q{quarter}.csv')
+    
+    data = []
+    if os.path.exists(csv_file):
+        import csv
+        with open(csv_file, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if exact_date and row.get('Date') != exact_date:
+                    continue
+                if region and row.get('Region') != region and region != 'ALL':
+                    continue
+                data.append(row)
+    
+    # Sort data by Date descending
+    data.sort(key=lambda x: x.get('Date', ''), reverse=True)
+                
+    resp = make_response(jsonify({
+        "status": "OK",
+        "quarter": quarter,
+        "year": year,
+        "region": region,
+        "exact_date": exact_date,
+        "data": data,
+        "file_exists": os.path.exists(csv_file)
+    }))
+    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return resp
 
 if __name__ == '__main__':
     auto_start_tools()

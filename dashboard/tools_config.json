@@ -12,8 +12,7 @@
         "directory": "../weather_forecast",
         "command": "python -u app.py",
         "has_gui": false
-    }
-    ,
+    },
     {
         "id": "lock_tracker",
         "name": "Lock Screen Tracker",
@@ -33,6 +32,13 @@
         "name": "Vietlott Data Fetcher",
         "directory": "../vietlott",
         "command": "python -u vietlott.py",
+        "has_gui": false
+    },
+    {
+        "id": "lottery_scraper",
+        "name": "Lotterycraper",
+        "directory": "../lottery_scraper",
+        "command": "python -u scraper.py",
         "has_gui": false
     }
 ]

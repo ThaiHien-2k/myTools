@@ -282,6 +282,7 @@
                             <div class="actions" id="actions-${tool.id}">
                                 ${tool.id === 'weather_forecast' && isRunning ? `<button id="webui-btn-weather" class="btn btn-view" style="background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border-color: rgba(16, 185, 129, 0.2);" onclick="window.open('/nowcast', '_blank')">Web UI ↗</button>` : ''}
                                 ${tool.id === 'lock_tracker' && isRunning ? `<button id="webui-btn-lock" class="btn btn-view" style="background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border-color: rgba(16, 185, 129, 0.2);" onclick="window.open('/lock', '_blank')">Web UI ↗</button>` : ''}
+                                ${tool.id === 'lottery_scraper' && isRunning ? `<button id="webui-btn-lottery" class="btn btn-view" style="background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border-color: rgba(16, 185, 129, 0.2);" onclick="window.open('/lottery', '_blank')">Web UI ↗</button>` : ''}
                                 ${tool.id === 'scan_network' ? `<button class="btn btn-openlog" id="npp-btn-${tool.id}" onclick="openLogInEditor('${tool.id}')" title="Mở log bằng Notepad++">📄 NPP</button>` : ''}
                                 <button class="btn btn-view" id="log-btn-${tool.id}" onclick="toggleLogs('${tool.id}')">Logs</button>
                                 <button class="btn btn-start" id="start-btn-${tool.id}" onclick="startTool('${tool.id}')" ${isRunning ? 'disabled' : ''}>Start</button>
@@ -308,11 +309,11 @@
                     if (startBtn) startBtn.disabled = isRunning;
                     if (stopBtn)  stopBtn.disabled  = !isRunning;
 
-                    // Cập nhật nút Web UI (weather_forecast và lock_tracker)
-                    if (tool.id === 'weather_forecast' || tool.id === 'lock_tracker') {
+                    // Cập nhật nút Web UI (weather_forecast, lock_tracker, lottery_scraper)
+                    if (tool.id === 'weather_forecast' || tool.id === 'lock_tracker' || tool.id === 'lottery_scraper') {
                         const actionsDiv = document.getElementById(`actions-${tool.id}`);
                         if (actionsDiv) {
-                            const btnId = tool.id === 'weather_forecast' ? 'webui-btn-weather' : 'webui-btn-lock';
+                            const btnId = tool.id === 'weather_forecast' ? 'webui-btn-weather' : (tool.id === 'lock_tracker' ? 'webui-btn-lock' : 'webui-btn-lottery');
                             let webBtn = document.getElementById(btnId);
                             if (isRunning && !webBtn) {
                                 webBtn = document.createElement('button');
@@ -320,7 +321,7 @@
                                 webBtn.className = 'btn btn-view';
                                 webBtn.style.cssText = 'background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border-color: rgba(16, 185, 129, 0.2);';
                                 webBtn.textContent = 'Web UI ↗';
-                                webBtn.onclick = () => window.open(tool.id === 'weather_forecast' ? '/nowcast' : '/lock', '_blank');
+                                webBtn.onclick = () => window.open(tool.id === 'weather_forecast' ? '/nowcast' : (tool.id === 'lock_tracker' ? '/lock' : '/lottery'), '_blank');
                                 actionsDiv.prepend(webBtn);
                             } else if (!isRunning && webBtn) {
                                 webBtn.remove();
