@@ -97,15 +97,16 @@ def scan_network():
         print(f"    {ip:<15} -> {name}")
     print("-" * 50)
     
-    # Ghi toàn bộ ra file CSV (đã sắp xếp)
-    try:
-        with open(PC_NAME_CACHE_FILE, "w", encoding="utf-8", newline="") as f:
-            writer = csv.writer(f)
-            for ip, name in sorted_devices:
-                writer.writerow([ip, name])
-        print(f"[*] Đã lưu thành công vào file: {PC_NAME_CACHE_FILE}")
-    except Exception as e:
-        print(f"[!] Lỗi khi lưu file: {e}")
+    # [GIỮ LẠI - KHÔNG CẦN XÓA] Đoạn ghi đè toàn bộ CSV cũ — đã bị vô hiệu hóa,
+    # không còn hoạt động sau lần fix hôm qua. Để đây tham khảo, không xóa.
+    # try:
+    #     with open(PC_NAME_CACHE_FILE, "w", encoding="utf-8", newline="") as f:
+    #         writer = csv.writer(f)
+    #         for ip, name in sorted_devices:
+    #             writer.writerow([ip, name])
+    #     print(f"[*] Đã lưu thành công vào file: {PC_NAME_CACHE_FILE}")
+    # except Exception as e:
+    #     print(f"[!] Lỗi khi lưu file: {e}")
 
 if __name__ == "__main__":
     scan_network()

@@ -4,6 +4,8 @@ import os
 import subprocess
 import threading
 import time
+import sys
+import tempfile
 
 app = Flask(__name__, static_folder='asset', static_url_path='/asset')
 app.config["TEMPLATES_AUTO_RELOAD"] = True
@@ -352,6 +354,59 @@ def stop_tool(tool_id):
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
 
+@app.route('/api/tools/<tool_id>/open_log', methods=['POST'])
+def open_log_in_notepadpp(tool_id):
+    """Ghi log hiện tại ra file tạm và mở bằng Notepad++"""
+    try:
+        tool = get_tool_config(tool_id)
+        tool_name = tool['name'] if tool else tool_id
+        # Đặc thù cho scan_network: mở file CSV thay vì log console
+        if tool_id == 'scan_network':
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            log_filename = os.path.normpath(os.path.join(base_dir, '..', 'network_monitor', 'pc_name_cache.csv'))
+            if not os.path.exists(log_filename):
+                return jsonify({"success": False, "message": "File pc_name_cache.csv chưa được tạo"})
+        else:
+            # Các tool khác: Luôn tạo file log dù log rỗng
+            logs = process_logs.get(tool_id, [])
+            log_text = '\n'.join(logs) if logs else f"[{tool_name}] Chưa có log. Tool chưa được start hoặc chưa có output."
+
+            # Ghi ra file tạm
+            tmp_dir = tempfile.gettempdir()
+            log_filename = os.path.join(tmp_dir, f"mytools_{tool_id}.log")
+            with open(log_filename, 'w', encoding='utf-8') as f:
+                f.write(log_text)
+
+        # Tìm Notepad++ — thử registry trước, sau đó các path phổ biến
+        npp_exe = None
+        try:
+            import winreg
+            key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                                 r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\notepad++.exe")
+            npp_exe, _ = winreg.QueryValueEx(key, "")
+            winreg.CloseKey(key)
+        except Exception:
+            pass
+
+        if not npp_exe or not os.path.exists(npp_exe):
+            for p in [
+                r"C:\Program Files\Notepad++\notepad++.exe",
+                r"C:\Program Files (x86)\Notepad++\notepad++.exe",
+            ]:
+                if os.path.exists(p):
+                    npp_exe = p
+                    break
+
+        if npp_exe and os.path.exists(npp_exe):
+            subprocess.Popen([npp_exe, log_filename])
+            return jsonify({"success": True, "message": f"Đã mở log [{tool_name}] trong Notepad++"})
+        else:
+            subprocess.Popen(['notepad.exe', log_filename])
+            return jsonify({"success": True, "message": "Notepad++ không tìm thấy, đã mở bằng Notepad"})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
 @app.route('/api/shutdown', methods=['POST'])
 def shutdown():
     def kill_server():
@@ -364,6 +419,49 @@ def shutdown():
         
     threading.Timer(0.5, kill_server).start()
     return jsonify({"success": True, "message": "System-wide shutdown initiated..."})
+
+
+@app.route('/api/restart', methods=['POST'])
+def restart_dashboard():
+    """Restart toàn bộ dashboard bằng cách dọn dẹp task cũ, kill chính nó rồi start lại"""
+    def do_restart():
+        # B1: Tắt các tool con đang quản lý
+        for t_id, proc in list(processes.items()):
+            try:
+                proc.kill()
+            except:
+                pass
+        
+        # B2: Tạo file batch tạm để kill process hiện tại và start lại
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        root_dir = os.path.normpath(os.path.join(base_dir, '..'))
+        pid = os.getpid()
+        
+        bat_content = f"""@echo off
+:: Cho 1 giay de API tra ve response
+timeout /t 1 /nobreak >nul
+:: Kill toan bo cay process cua dashboard cu (dam bao nha port 1101)
+taskkill /F /T /PID {pid} >nul 2>&1
+:: Chuyen ve thu muc goc va start lai
+cd /d "{root_dir}"
+if exist "start_hidden.vbs" (
+    wscript.exe "start_hidden.vbs"
+) else (
+    start "" /b "start_dashboard.bat"
+)
+:: Tu xoa file bat
+del "%~f0"
+"""
+        tmp_dir = tempfile.gettempdir()
+        bat_path = os.path.join(tmp_dir, "restart_mytools.bat")
+        with open(bat_path, "w", encoding='utf-8') as f:
+            f.write(bat_content)
+        
+        # B3: Chay file batch doc lap
+        subprocess.Popen(bat_path, creationflags=subprocess.DETACHED_PROCESS)
+
+    threading.Thread(target=do_restart, daemon=True).start()
+    return jsonify({"success": True, "message": "Dashboard đang restart..."})
 
 if __name__ == '__main__':
     auto_start_tools()

@@ -154,6 +154,10 @@
         .btn-stop { background: var(--accent-red); color: white; }
         .btn-view { background: rgba(56, 189, 248, 0.1); color: var(--accent-blue); border: 1px solid rgba(56, 189, 248, 0.2); }
         .btn-view.active { background: var(--accent-blue); color: white; }
+        .btn-openlog { background: rgba(250, 204, 21, 0.1); color: #facc15; border: 1px solid rgba(250, 204, 21, 0.25); font-size: 0.78rem; padding: 0.4rem 0.7rem; }
+        .btn-openlog:hover { background: rgba(250, 204, 21, 0.2); }
+        .btn-restart { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
+        .btn-restart:hover { background: rgba(168, 85, 247, 0.3); }
 
         .terminal {
             background: #000;
@@ -230,7 +234,14 @@
 
     <div class="header">
         <h1>myTools Control Center</h1>
-        <button onclick="shutdownDashboard()" style="padding: 0.5rem 1rem; background: var(--accent-red); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Shutdown Dashboard</button>
+        <div style="display: flex; gap: 0.75rem; justify-content: center; margin-top: 0.5rem;">
+            <button id="restart-dashboard-btn" class="btn btn-restart" onclick="restartDashboard()">
+                &#x21BB; Restart Dashboard
+            </button>
+            <button onclick="shutdownDashboard()" class="btn btn-stop">
+                &#x23FB; Shutdown Dashboard
+            </button>
+        </div>
     </div>
 
     <div class="grid" id="tools-container"></div>
@@ -271,6 +282,7 @@
                             <div class="actions" id="actions-${tool.id}">
                                 ${tool.id === 'weather_forecast' && isRunning ? `<button id="webui-btn-weather" class="btn btn-view" style="background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border-color: rgba(16, 185, 129, 0.2);" onclick="window.open('/nowcast', '_blank')">Web UI ↗</button>` : ''}
                                 ${tool.id === 'lock_tracker' && isRunning ? `<button id="webui-btn-lock" class="btn btn-view" style="background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border-color: rgba(16, 185, 129, 0.2);" onclick="window.open('/lock', '_blank')">Web UI ↗</button>` : ''}
+                                ${tool.id === 'scan_network' ? `<button class="btn btn-openlog" id="npp-btn-${tool.id}" onclick="openLogInEditor('${tool.id}')" title="Mở log bằng Notepad++">📄 NPP</button>` : ''}
                                 <button class="btn btn-view" id="log-btn-${tool.id}" onclick="toggleLogs('${tool.id}')">Logs</button>
                                 <button class="btn btn-start" id="start-btn-${tool.id}" onclick="startTool('${tool.id}')" ${isRunning ? 'disabled' : ''}>Start</button>
                                 <button class="btn btn-stop"  id="stop-btn-${tool.id}"  onclick="stopTool('${tool.id}')"  ${!isRunning ? 'disabled' : ''}>Stop</button>
@@ -367,6 +379,35 @@
         async function shutdownDashboard() {
             const res = await fetch('/api/shutdown', { method: 'POST' });
             document.body.innerHTML = '<h1 style="text-align: center; margin-top: 50px; color: #ef4444;">Dashboard Offline</h1>';
+        }
+
+        async function restartDashboard() {
+            const btn = document.getElementById('restart-dashboard-btn');
+            btn.disabled = true;
+            btn.textContent = '\u23F3 Restarting...';
+            try {
+                await fetch('/api/restart', { method: 'POST' });
+                document.body.innerHTML = `
+                    <div style="text-align:center; margin-top: 80px; font-family: Inter, sans-serif;">
+                        <h1 style="color: #c084fc; font-size: 2rem;">&#x21BB; Dashboard restarting...</h1>
+                        <p style="color: #94a3b8; margin-top: 1rem;">Tự reload sau 2 giây...</p>
+                    </div>`;
+                setTimeout(() => location.reload(), 2000);
+            } catch(e) {
+                btn.disabled = false;
+                btn.textContent = '\u21BB Restart Dashboard';
+                showToast('L\u1ed7i khi restart!', 'error');
+            }
+        }
+
+        async function openLogInEditor(id) {
+            try {
+                const res = await fetch(`/api/tools/${id}/open_log`, { method: 'POST' });
+                const data = await res.json();
+                showToast(data.message, data.success ? 'success' : 'error');
+            } catch(e) {
+                showToast('L\u1ed7i khi m\u1edf log!', 'error');
+            }
         }
         
         function showToast(msg, type) {
