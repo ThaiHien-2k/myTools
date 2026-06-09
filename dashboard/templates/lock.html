@@ -285,7 +285,7 @@ function renderSessionDetails(date){
         tbody.appendChild(tr);
         return;
     }
-    sessions.forEach(session => {
+    sessions.slice().reverse().forEach(session => {
         const tr = document.createElement('tr');
         tr.innerHTML = `<td>${formatDate(date)}</td><td>${session.lock_at || ''}</td><td>${session.unlock_at || ''}</td><td>${session.duration_formatted || formatDurationSecs(session.duration_seconds)}</td>`;
         tbody.appendChild(tr);

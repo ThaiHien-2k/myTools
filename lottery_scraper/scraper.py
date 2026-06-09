@@ -96,20 +96,21 @@ def set_last_scraped_date(d):
 def main():
     print("--- STARTING LOTTERY SCRAPER ---")
     today = datetime.date.today()
+    target_date = today - datetime.timedelta(days=1)
     last_scraped = get_last_scraped_date()
     
     if last_scraped is None:
-        start_date = today - datetime.timedelta(days=730)
+        start_date = target_date - datetime.timedelta(days=729)
         print("First run detected. Scraping 2 years of data...")
     else:
         start_date = last_scraped + datetime.timedelta(days=1)
         print(f"Resuming from last scraped date: {last_scraped}")
 
-    if start_date > today:
+    if start_date > target_date:
         print("Data is already up to date!")
         return
 
-    total_days = (today - start_date).days + 1
+    total_days = (target_date - start_date).days + 1
     print(f"Targeting {total_days} days to scrape.")
     
     for i in range(total_days):
