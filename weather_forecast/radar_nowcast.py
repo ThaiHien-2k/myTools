@@ -248,9 +248,10 @@ def smooth_risk_score(raw_risk, target_lat, target_lon):
 
     previous_scores = [float(item.get("risk_score", 0) or 0) for item in recent_same_place[-3:]]
     if len(previous_scores) >= 2:
-        smoothed = raw_risk * 0.55 + previous_scores[-1] * 0.30 + previous_scores[-2] * 0.15
+        # Ưu tiên giá trị hiện tại hơn để phản ứng nhanh với thay đổi đột ngột
+        smoothed = raw_risk * 0.70 + previous_scores[-1] * 0.20 + previous_scores[-2] * 0.10
     elif previous_scores:
-        smoothed = raw_risk * 0.70 + previous_scores[-1] * 0.30
+        smoothed = raw_risk * 0.80 + previous_scores[-1] * 0.20
     else:
         smoothed = raw_risk
 
@@ -464,6 +465,7 @@ def run_analysis(target_lat=10.8231, target_lon=106.6297):
             "risk_trend": "stable",
             "risk_delta": 0,
             "analysis_reasons": [],
+            "radar_delay_seconds": 0,
         },
         "timestamp": time.time(),
     }
@@ -493,6 +495,9 @@ def run_analysis(target_lat=10.8231, target_lon=106.6297):
         analysis_frames = past_frames[-12:]
         frame_old = analysis_frames[0]
         frame_new = past_frames[-1]
+        # Tính độ trễ thực tế của dữ liệu radar so với hiện tại
+        radar_delay_seconds = max(0, time.time() - frame_new["time"])
+        result["details"]["radar_delay_seconds"] = int(radar_delay_seconds)
         result["details"]["rainviewer_host"] = host
         result["details"]["rainviewer_path"] = frame_new["path"]
     except Exception as e:
@@ -591,7 +596,11 @@ def run_analysis(target_lat=10.8231, target_lon=106.6297):
                     cos_a = max(-1.0, min(1.0, dot / (mag_move * mag_home)))
                     approach_angle_deg = math.degrees(math.acos(cos_a))
                 if distance_km > 0 and cloud_speed_kph > 1 and approach_angle_deg is not None and approach_angle_deg <= 70:
-                    eta_minutes = int((distance_km / cloud_speed_kph) * 60)
+                    # Bù độ trễ radar: mây đã di chuyển thêm kể từ snapshot
+                    delay_h = radar_delay_seconds / 3600
+                    move_km_delay = cloud_speed_kph * delay_h * math.cos(math.radians(approach_angle_deg))
+                    adjusted_dist = max(0.0, distance_km - move_km_delay)
+                    eta_minutes = max(0, int((adjusted_dist / cloud_speed_kph) * 60))
 
             rain_mm = max(get_vrain_rainfall(cloud_lat, cloud_lon), baseline_rain)
             path_rain = sample_path_rain(cloud_lat, cloud_lon, target_lat, target_lon)
@@ -655,7 +664,7 @@ def run_analysis(target_lat=10.8231, target_lon=106.6297):
             if best_analysis["approach_angle_deg"] is not None else None
         )
         # Nếu chưa set eta above (raining_here sets to 0), keep best_analysis otherwise
-        if not result["details"].get("eta_minutes"):
+        if result["details"].get("eta_minutes") is None:
             result["details"]["eta_minutes"] = best_analysis["eta_minutes"] or 0
         result["details"]["path_rain_mm"] = round(best_analysis["path_rain"]["max"], 2)
         result["details"]["path_rain_avg"] = round(best_analysis["path_rain"]["avg"], 2)

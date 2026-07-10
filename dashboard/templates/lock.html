@@ -111,6 +111,7 @@
             <div class="select-group">
                 <label for="viewMode">Xem theo</label>
                 <select id="viewMode">
+                    <option value="recent" selected>10 ngày gần nhất</option>
                     <option value="daily">Ngày</option>
                     <option value="monthly">Tháng</option>
                     <option value="yearly">Năm</option>
@@ -292,6 +293,7 @@ function renderSessionDetails(date){
     });
 }
 
+
 function buildChartData(view){
     if(!lockData) return { labels: [], values: [], counts: [] };
     if(view === 'monthly'){
@@ -310,7 +312,9 @@ function buildChartData(view){
             counts: list.map(r => r.session_count || 0)
         };
     }
-    const list = lockData.recent_history.length ? lockData.recent_history : lockData.history || [];
+    // daily & recent: use full history sorted asc
+    const all = (lockData.history || []).slice();
+    const list = view === 'recent' ? all.slice(-10) : all;
     return {
         labels: list.map(r => formatDate(r.date)),
         values: list.map(r => Math.round(r.total_seconds)),
@@ -320,10 +324,12 @@ function buildChartData(view){
 
 function renderChart(view){
     const data = buildChartData(view);
-    const title = view === 'monthly' ? 'Tổng thời gian khóa theo tháng' : view === 'yearly' ? 'Tổng thời gian khóa theo năm' : 'Tổng thời gian khóa theo ngày';
-    document.getElementById('chartTitle').textContent = title;
-    const color = view === 'yearly' ? 'rgba(34,197,94,0.9)' : view === 'monthly' ? 'rgba(248,113,113,0.9)' : 'rgba(56,189,248,0.9)';
-    const border = view === 'yearly' ? 'rgba(34,197,94,1)' : view === 'monthly' ? 'rgba(248,113,113,1)' : 'rgba(56,189,248,1)';
+    const titleMap = { monthly: 'Tổng thời gian khóa theo tháng', yearly: 'Tổng thời gian khóa theo năm', recent: 'Tổng thời gian khóa — 10 ngày gần nhất' };
+    document.getElementById('chartTitle').textContent = titleMap[view] || 'Tổng thời gian khóa theo ngày';
+    const colorMap = { yearly: 'rgba(34,197,94,0.9)', monthly: 'rgba(248,113,113,0.9)' };
+    const borderMap = { yearly: 'rgba(34,197,94,1)', monthly: 'rgba(248,113,113,1)' };
+    const color = colorMap[view] || 'rgba(56,189,248,0.9)';
+    const border = borderMap[view] || 'rgba(56,189,248,1)';
     if(mainChart) mainChart.destroy();
     mainChart = new Chart(mainChartCtx, {
         type: 'bar',
@@ -388,15 +394,15 @@ function renderTable(view){
     const tbody = document.querySelector('#dataTable tbody');
     tbody.innerHTML = '';
     if(!lockData) return;
-    let rows = [];
     if(view === 'monthly'){
-        rows = lockData.month_totals || [];
+        const rows = lockData.month_totals || [];
         rows.forEach(row => { const tr = document.createElement('tr'); tr.innerHTML = `<td>${formatMonth(row.month)}</td><td>${formatDurationSecs(row.total_seconds)}</td><td>${row.session_count}</td>`; tbody.appendChild(tr); });
     } else if(view === 'yearly'){
-        rows = lockData.year_totals || [];
+        const rows = lockData.year_totals || [];
         rows.forEach(row => { const tr = document.createElement('tr'); tr.innerHTML = `<td>${formatYear(row.year)}</td><td>${formatDurationSecs(row.total_seconds)}</td><td>${row.session_count}</td>`; tbody.appendChild(tr); });
     } else {
-        rows = (lockData.history || []).slice().reverse();
+        const all = (lockData.history || []).slice().reverse();
+        const rows = view === 'recent' ? all.slice(0, 10) : all;
         rows.forEach(row => { const tr = document.createElement('tr'); tr.innerHTML = `<td>${formatDate(row.date)}</td><td>${formatDurationSecs(row.total_seconds)}</td><td>${row.session_count}</td>`; tbody.appendChild(tr); });
     }
 }
