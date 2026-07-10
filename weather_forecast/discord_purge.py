@@ -18,8 +18,14 @@ if sys.stdout.encoding != 'utf-8':
 
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 STATE_FILE = os.path.join(BASE_DIR, "discord_state.json")
+SECRETS_FILE = os.path.join(BASE_DIR, "secrets.json")
 
-DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1509388087325622412/YGaBJuj5PhSZMFcaGq0fKu9OPjHJ8LSSurMZJK8d1DtQyCR391XItOLtJhfJgJLi8EjO"
+try:
+    with open(SECRETS_FILE, "r") as f:
+        _secrets = json.load(f)
+        DISCORD_WEBHOOK_URL = _secrets.get("DISCORD_WEBHOOK_URL", "")
+except Exception:
+    DISCORD_WEBHOOK_URL = ""
 
 def delete_message(msg_id):
     if not msg_id:

@@ -12,13 +12,19 @@ if sys.stdout.encoding != 'utf-8':
         pass
 
 
-DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1509388087325622412/YGaBJuj5PhSZMFcaGq0fKu9OPjHJ8LSSurMZJK8d1DtQyCR391XItOLtJhfJgJLi8EjO"
+BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
+STATE_FILE = os.path.join(BASE_DIR, "discord_state.json")
+SECRETS_FILE = os.path.join(BASE_DIR, "secrets.json")
+
+try:
+    with open(SECRETS_FILE, "r") as f:
+        _secrets = json.load(f)
+        DISCORD_WEBHOOK_URL = _secrets.get("DISCORD_WEBHOOK_URL", "")
+except Exception:
+    DISCORD_WEBHOOK_URL = ""
 
 # URL dashboard để gắn vào nút trên thông báo (có thể override bằng biến môi trường)
 DASHBOARD_URL = os.environ.get("DASHBOARD_URL", "https://dashboard.example.com")
-
-BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
-STATE_FILE = os.path.join(BASE_DIR, "discord_state.json")
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Cấu hình chống spam và xóa cảnh báo
@@ -194,32 +200,15 @@ def send_discord_alert(status, message, details):
             state["safe_since"] = None
             state["consecutive_warning_count"] = state.get("consecutive_warning_count", 0) + 1
 
-        if state.get("last_sent_status") == "DANGER" and state.get("last_message_id"):
-            if status == "WARNING" and state["consecutive_warning_count"] >= 2:
-                delete_message(state["last_message_id"])
-                state["last_message_id"] = None
-                state["last_sent_time"] = 0
-                state["last_sent_status"] = "WARNING"
-                state["state_date"] = today_key()
-                save_state(state)
-                print("✅ [Discord] Đã xóa cảnh báo DANGER do 2 lần WARNING liên tiếp.")
-                return
-
-            if status == "SAFE":
-                safe_minutes = (now - float(state["safe_since"])) / 60
-                if safe_minutes < MIN_SAFE_DELETE_MINUTES:
-                    save_state(state)
-                    print(f"🔕 [Discord] Đợi SAFE ổn định {MIN_SAFE_DELETE_MINUTES} phút rồi mới xóa cảnh báo DANGER.")
-                    return
-
-                delete_message(state["last_message_id"])
-                state["last_message_id"] = None
-                state["last_sent_time"] = 0
-                state["last_sent_status"] = "SAFE"
-                state["state_date"] = today_key()
-                save_state(state)
-                print("✅ [Discord] Đã xóa cảnh báo DANGER vì đã an toàn 30 phút.")
-                return
+        if state.get("last_message_id"):
+            delete_message(state["last_message_id"])
+            state["last_message_id"] = None
+            state["last_sent_time"] = 0
+            state["last_sent_status"] = status
+            state["state_date"] = today_key()
+            save_state(state)
+            print(f"✅ [Discord] Đã xóa cảnh báo DANGER lập tức vì trạng thái là {status}.")
+            return
 
         if not (state.get("last_sent_status") == "DANGER" and state.get("last_message_id")):
             state["last_sent_status"] = status
@@ -397,7 +386,13 @@ def send_daily_summary(location_name, details):
         })
 
     try:
-        state = cleanup_old_day_messages(load_state())
+        state = load_state()
+        
+        # Xóa tất cả các daily summary cũ trước khi gửi cái mới
+        for msg_id in state.get("daily_message_ids", []):
+            delete_message(msg_id)
+        state["daily_message_ids"] = []
+        
         url = f"{DISCORD_WEBHOOK_URL}?wait=true"
         components = [
             {

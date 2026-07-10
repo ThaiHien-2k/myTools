@@ -99,10 +99,13 @@ except Exception as e:
 # === 5. Discord Webhook ===
 print("\n[5] Discord Webhook")
 try:
-    wh = requests.get(
-        "https://discord.com/api/webhooks/1509388087325622412/YGaBJuj5PhSZMFcaGq0fKu9OPjHJ8LSSurMZJK8d1DtQyCR391XItOLtJhfJgJLi8EjO",
-        timeout=5
-    ).json()
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    try:
+        with open(os.path.join(BASE_DIR, "secrets.json"), "r") as f:
+            webhook_url = json.load(f).get("DISCORD_WEBHOOK_URL", "")
+    except Exception:
+        webhook_url = ""
+    wh = requests.get(webhook_url, timeout=5).json()
     if "id" in wh:
         print(f"  OK  Webhook hop le")
         print(f"       guild_id = {wh.get('guild_id')}")

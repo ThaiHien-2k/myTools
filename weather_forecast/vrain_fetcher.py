@@ -1,7 +1,15 @@
 import requests
 import math
 
-OWM_API_KEY = "caba72153195e76e835b0e35a82e4edb"
+import os
+import json
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+try:
+    with open(os.path.join(BASE_DIR, "secrets.json"), "r") as f:
+        OWM_API_KEY = json.load(f).get("OWM_API_KEY", "")
+except:
+    OWM_API_KEY = ""
 
 def get_vrain_rainfall(lat, lon):
     """

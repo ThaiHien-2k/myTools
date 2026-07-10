@@ -17,7 +17,11 @@ if sys.stdout.encoding != 'utf-8':
         pass
 
 
-OWM_API_KEY = "caba72153195e76e835b0e35a82e4edb"
+try:
+    with open(os.path.join(BASE_DIR, "secrets.json"), "r") as f:
+        OWM_API_KEY = json.load(f).get("OWM_API_KEY", "")
+except:
+    OWM_API_KEY = ""
 ZOOM_LEVEL = 7
 PATH_RAIN_SAMPLE_COUNT = 3
 MAX_CLOUD_CANDIDATES = 5

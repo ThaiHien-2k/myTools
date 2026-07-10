@@ -13,7 +13,13 @@ import csv
 PORTS = {80, 443, 3000, 5000, 8080, 5500, 5501}
 TIMEOUT = 60            # Thời gian (giây) trước khi xóa client không còn hoạt động
 REFRESH_INTERVAL = 5    # Chu kỳ làm mới màn hình (giây)
-DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1503940604810235945/BCIRdsHM3507ktWnqZTU4AVyQVdTXqgnACBMIpvdspzGsLR7T6JoHndOVgGYGINu3EIh" # Điền webhook URL của bạn vào đây
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SECRETS_FILE = os.path.join(os.path.dirname(BASE_DIR), "weather_forecast", "secrets.json")
+try:
+    with open(SECRETS_FILE, "r") as f:
+        DISCORD_WEBHOOK_URL = json.load(f).get("NETWORK_MONITOR_WEBHOOK_URL", "")
+except:
+    DISCORD_WEBHOOK_URL = ""
 MSG_LOG_FILE = "discord_msg_log.json"
 PC_NAME_CACHE_FILE = "pc_name_cache.csv"
 file_lock = threading.Lock()
