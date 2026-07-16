@@ -40,5 +40,12 @@
         "directory": "../lottery_scraper",
         "command": "python -u scraper.py",
         "has_gui": false
+    },
+    {
+        "id": "npm_manager",
+        "name": "Dev Server Manager",
+        "directory": "../npm_manager",
+        "command": "python -u manager.py",
+        "has_gui": false
     }
 ]

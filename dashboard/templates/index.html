@@ -86,8 +86,44 @@
         .tool-name {
             font-size: 1.2rem;
             font-weight: 600;
-            min-width: 250px;
+            min-width: 200px;
+            cursor: text;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
         }
+        .tool-name span.edit-icon {
+            font-size: 0.75rem;
+            opacity: 0;
+            transition: opacity 0.2s;
+            color: var(--text-muted);
+        }
+        .card:hover .tool-name span.edit-icon { opacity: 1; }
+        .tool-name input {
+            font-size: 1.2rem;
+            font-weight: 600;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid var(--accent-blue);
+            border-radius: 6px;
+            color: var(--text-main);
+            padding: 0.1rem 0.4rem;
+            width: 100%;
+            outline: none;
+            font-family: 'Inter', sans-serif;
+        }
+        .drag-handle {
+            cursor: grab;
+            color: var(--text-muted);
+            padding: 0 0.5rem;
+            font-size: 1.2rem;
+            opacity: 0.4;
+            transition: opacity 0.2s;
+            flex-shrink: 0;
+            user-select: none;
+        }
+        .card:hover .drag-handle { opacity: 0.8; }
+        .card.dragging { opacity: 0.4; border: 2px dashed var(--accent-blue); }
+        .card.drag-over { border-color: var(--accent-green); background: rgba(16, 185, 129, 0.05); }
 
         .status-badge {
             display: inline-flex;
@@ -272,8 +308,12 @@
                     const badgeClass = isRunning ? 'running' : 'stopped';
                     card.innerHTML = `
                         <div class="card-top">
+                            <span class="drag-handle" draggable="false">⠿</span>
                             <div class="tool-info">
-                                <h2 class="tool-name">${tool.name}</h2>
+                                <h2 class="tool-name" id="name-${tool.id}" ondblclick="startRename('${tool.id}')">
+                                    <span class="name-text">${tool.name}</span>
+                                    <span class="edit-icon" title="Double-click để đổi tên">✏️</span>
+                                </h2>
                                 <span class="status-badge ${badgeClass}" id="badge-${tool.id}">
                                     <span class="status-indicator"></span>
                                     ${tool.status}
@@ -283,6 +323,7 @@
                                 ${tool.id === 'weather_forecast' && isRunning ? `<button id="webui-btn-weather" class="btn btn-view" style="background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border-color: rgba(16, 185, 129, 0.2);" onclick="window.open('/nowcast', '_blank')">Web UI ↗</button>` : ''}
                                 ${tool.id === 'lock_tracker' && isRunning ? `<button id="webui-btn-lock" class="btn btn-view" style="background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border-color: rgba(16, 185, 129, 0.2);" onclick="window.open('/lock', '_blank')">Web UI ↗</button>` : ''}
                                 ${tool.id === 'lottery_scraper' && isRunning ? `<button id="webui-btn-lottery" class="btn btn-view" style="background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border-color: rgba(16, 185, 129, 0.2);" onclick="window.open('/lottery', '_blank')">Web UI ↗</button>` : ''}
+                                ${tool.id === 'npm_manager' && isRunning ? `<button id="webui-btn-npm" class="btn btn-view" style="background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border-color: rgba(16, 185, 129, 0.2);" onclick="window.open('/dev_manager', '_blank')">Web UI ↗</button>` : ''}
                                 ${tool.id === 'scan_network' ? `<button class="btn btn-openlog" id="npp-btn-${tool.id}" onclick="openLogInEditor('${tool.id}')" title="Mở log bằng Notepad++">📄 NPP</button>` : ''}
                                 <button class="btn btn-view" id="log-btn-${tool.id}" onclick="toggleLogs('${tool.id}')">Logs</button>
                                 <button class="btn btn-start" id="start-btn-${tool.id}" onclick="startTool('${tool.id}')" ${isRunning ? 'disabled' : ''}>Start</button>
@@ -309,11 +350,11 @@
                     if (startBtn) startBtn.disabled = isRunning;
                     if (stopBtn)  stopBtn.disabled  = !isRunning;
 
-                    // Cập nhật nút Web UI (weather_forecast, lock_tracker, lottery_scraper)
-                    if (tool.id === 'weather_forecast' || tool.id === 'lock_tracker' || tool.id === 'lottery_scraper') {
+                    // Cập nhật nút Web UI
+                    if (tool.id === 'weather_forecast' || tool.id === 'lock_tracker' || tool.id === 'lottery_scraper' || tool.id === 'npm_manager') {
                         const actionsDiv = document.getElementById(`actions-${tool.id}`);
                         if (actionsDiv) {
-                            const btnId = tool.id === 'weather_forecast' ? 'webui-btn-weather' : (tool.id === 'lock_tracker' ? 'webui-btn-lock' : 'webui-btn-lottery');
+                            const btnId = tool.id === 'weather_forecast' ? 'webui-btn-weather' : (tool.id === 'lock_tracker' ? 'webui-btn-lock' : (tool.id === 'lottery_scraper' ? 'webui-btn-lottery' : 'webui-btn-npm'));
                             let webBtn = document.getElementById(btnId);
                             if (isRunning && !webBtn) {
                                 webBtn = document.createElement('button');
@@ -321,7 +362,7 @@
                                 webBtn.className = 'btn btn-view';
                                 webBtn.style.cssText = 'background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border-color: rgba(16, 185, 129, 0.2);';
                                 webBtn.textContent = 'Web UI ↗';
-                                webBtn.onclick = () => window.open(tool.id === 'weather_forecast' ? '/nowcast' : (tool.id === 'lock_tracker' ? '/lock' : '/lottery'), '_blank');
+                                webBtn.onclick = () => window.open(tool.id === 'weather_forecast' ? '/nowcast' : (tool.id === 'lock_tracker' ? '/lock' : (tool.id === 'lottery_scraper' ? '/lottery' : '/dev_manager')), '_blank');
                                 actionsDiv.prepend(webBtn);
                             } else if (!isRunning && webBtn) {
                                 webBtn.remove();
@@ -339,6 +380,95 @@
                     fetchLogs(tool.id);
                 }
             });
+            // Re-init drag and drop each time new cards are added
+            initDragAndDrop();
+        }
+
+        // ===== DRAG AND DROP =====
+        function initDragAndDrop() {
+            const cards = container.querySelectorAll('.card');
+            let draggingCard = null;
+
+            cards.forEach(card => {
+                const handle = card.querySelector('.drag-handle');
+                if (!handle || handle._dndReady) return;
+                handle._dndReady = true;
+
+                handle.addEventListener('mousedown', () => { card.draggable = true; });
+                document.addEventListener('mouseup', () => { card.draggable = false; }, { once: false });
+
+                card.addEventListener('dragstart', e => {
+                    draggingCard = card;
+                    setTimeout(() => card.classList.add('dragging'), 0);
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+                card.addEventListener('dragend', () => {
+                    card.draggable = false;
+                    card.classList.remove('dragging');
+                    draggingCard = null;
+                    container.querySelectorAll('.card').forEach(c => c.classList.remove('drag-over'));
+                    saveOrder();
+                });
+                card.addEventListener('dragover', e => {
+                    e.preventDefault();
+                    if (!draggingCard || card === draggingCard) return;
+                    container.querySelectorAll('.card').forEach(c => c.classList.remove('drag-over'));
+                    card.classList.add('drag-over');
+                    const bounding = card.getBoundingClientRect();
+                    if (e.clientY - bounding.top > bounding.height / 2) {
+                        container.insertBefore(draggingCard, card.nextSibling);
+                    } else {
+                        container.insertBefore(draggingCard, card);
+                    }
+                });
+                card.addEventListener('dragleave', () => { card.classList.remove('drag-over'); });
+                card.addEventListener('drop', e => { e.preventDefault(); card.classList.remove('drag-over'); });
+            });
+        }
+
+        async function saveOrder() {
+            const order = Array.from(container.querySelectorAll('.card')).map(c => c.id.replace('card-', ''));
+            await fetch('/api/tools/reorder', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order })
+            });
+        }
+
+        // ===== INLINE RENAME =====
+        function startRename(id) {
+            const nameEl = document.getElementById(`name-${id}`);
+            if (!nameEl || nameEl.querySelector('input')) return;
+            const currentName = nameEl.querySelector('.name-text').textContent.trim();
+            nameEl.innerHTML = `<input id="rename-input-${id}" value="${currentName}" onblur="finishRename('${id}', '${currentName.replace(/'/g,"\\\'")}')" onkeydown="if(event.key==='Enter'){this.blur();} if(event.key==='Escape') cancelRename('${id}', '${currentName.replace(/'/g,"\\\'")}')" style="width:200px">`;
+            const input = document.getElementById(`rename-input-${id}`);
+            input.focus();
+            input.select();
+        }
+
+        async function finishRename(id, original) {
+            const input = document.getElementById(`rename-input-${id}`);
+            if (!input) return;
+            const newName = input.value.trim() || original;
+            const nameEl = document.getElementById(`name-${id}`);
+            nameEl.innerHTML = `<span class="name-text">${newName}</span><span class="edit-icon" title="Double-click để đổi tên">✏️</span>`;
+            nameEl.ondblclick = () => startRename(id);
+            if (newName === original) return;
+            const res = await fetch(`/api/tools/${id}/rename`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: newName })
+            });
+            const data = await res.json();
+            showToast(data.success ? `Đã đổi tên thành "${newName}"` : data.message, data.success ? 'success' : 'error');
+        }
+
+        function cancelRename(id, original) {
+            const nameEl = document.getElementById(`name-${id}`);
+            if (nameEl) {
+                nameEl.innerHTML = `<span class="name-text">${original}</span><span class="edit-icon" title="Double-click để đổi tên">✏️</span>`;
+                nameEl.ondblclick = () => startRename(id);
+            }
         }
 
         function toggleLogs(id) {
