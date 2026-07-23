@@ -142,7 +142,45 @@ class VietlottPowerEngine:
             
         return final_output
 
+def fetch_current_jackpots():
+    import urllib.request
+    import re
+    import sys
+
+    try:
+        if hasattr(sys.stdout, 'reconfigure'):
+            sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
+    print("\n" + "="*65)
+    print("   GIÁ TRỊ JACKPOT VIETLOTT THỜI ĐIỂM HIỆN TẠI")
+    print("="*65)
+    
+    try:
+        url = "https://vietlott.vn"
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+        with urllib.request.urlopen(req, timeout=5) as response:
+            html = response.read().decode('utf-8')
+            
+        items = re.findall(r'<p>\s*(Jackpot[^<]*?)\s*</p>[\s\S]*?<h3>\s*([\d\.]+)\s*</h3>', html)
+        
+        if items:
+            for label, val_str in items:
+                val_clean = int(val_str.replace('.', ''))
+                billion_val = val_clean / 1_000_000_000
+                print(f" 💰 {label:<30}: {val_str:>16} VNĐ  (~{billion_val:.2f} tỷ VNĐ)")
+        else:
+            print(" ⚠️ Không tìm thấy thông tin Jackpot từ Vietlott.")
+    except Exception as e:
+        print(f" ⚠️ Không thể kết nối lấy dữ liệu Jackpot: {e}")
+        
+    print("="*65)
+
+
 if __name__ == "__main__":
+    fetch_current_jackpots()
+
     DATA_FILE = "vietlott.csv"
     if os.path.exists(DATA_FILE):
         engine = VietlottPowerEngine(DATA_FILE)
