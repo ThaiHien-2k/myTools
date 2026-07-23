@@ -785,6 +785,22 @@ def start_npm_project_internal(project, script_name="dev"):
     t.daemon = True
     t.start()
 
+def is_npm_manager_running():
+    return 'npm_manager' in processes and processes['npm_manager'].poll() is None
+
+def check_npm_manager_running(f):
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not is_npm_manager_running():
+            return jsonify({
+                "success": False,
+                "service_stopped": True,
+                "message": "Dev Server Manager chưa được bật từ Dashboard. Vui lòng bật Start trên Dashboard trước!"
+            }), 503
+        return f(*args, **kwargs)
+    return decorated_function
+
 @app.route('/dev_manager')
 def dev_manager_ui():
     return render_template('dev_manager.html')
@@ -794,6 +810,7 @@ def npm_ui():
     return redirect(url_for('dev_manager_ui'))
 
 @app.route('/api/dev_manager/projects', methods=['GET'])
+@check_npm_manager_running
 def get_npm_projects():
     projects = load_npm_projects()
     for proj in projects:
@@ -817,6 +834,7 @@ def get_npm_projects():
     return jsonify(projects)
 
 @app.route('/api/dev_manager/projects', methods=['POST'])
+@check_npm_manager_running
 def add_npm_project():
     data = request.json
     path = data.get('path', '').strip()
@@ -847,6 +865,7 @@ def add_npm_project():
     return jsonify({"success": True, "project": new_proj})
 
 @app.route('/api/dev_manager/projects/<pid>', methods=['DELETE'])
+@check_npm_manager_running
 def delete_npm_project(pid):
     projects = load_npm_projects()
     new_projects = [p for p in projects if p['id'] != pid]
@@ -867,6 +886,7 @@ def delete_npm_project(pid):
     return jsonify({"success": True})
 
 @app.route('/api/dev_manager/projects/<pid>/refresh', methods=['POST'])
+@check_npm_manager_running
 def refresh_npm_project(pid):
     projects = load_npm_projects()
     for proj in projects:
@@ -884,6 +904,7 @@ def refresh_npm_project(pid):
     return jsonify({"success": False, "message": "Project not found"}), 404
 
 @app.route('/api/dev_manager/projects/<pid>/start', methods=['POST'])
+@check_npm_manager_running
 def start_npm_project(pid):
     data = request.json or {}
     script_name = data.get('script', 'dev')
@@ -900,6 +921,7 @@ def start_npm_project(pid):
         return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route('/api/dev_manager/projects/<pid>/stop', methods=['POST'])
+@check_npm_manager_running
 def stop_npm_project(pid):
     if pid not in npm_processes or npm_processes[pid]['process'].poll() is not None:
         return jsonify({"success": False, "message": "Project is not running"}), 400
@@ -919,12 +941,14 @@ def stop_npm_project(pid):
         return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route('/api/dev_manager/projects/<pid>/logs', methods=['GET'])
+@check_npm_manager_running
 def get_npm_project_logs(pid):
     if pid in npm_processes:
         return jsonify({"logs": npm_processes[pid]["logs"]})
     return jsonify({"logs": []})
 
 @app.route('/api/dev_manager/projects/<pid>/input', methods=['POST'])
+@check_npm_manager_running
 def input_npm_project(pid):
     if pid not in npm_processes or npm_processes[pid]['process'].poll() is not None:
         return jsonify({"success": False, "message": "Project is not running"}), 400
@@ -941,6 +965,7 @@ def input_npm_project(pid):
         return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route('/api/dev_manager/projects/<pid>/toggle_autostart', methods=['POST'])
+@check_npm_manager_running
 def toggle_npm_autostart(pid):
     projects = load_npm_projects()
     for p in projects:
@@ -951,6 +976,7 @@ def toggle_npm_autostart(pid):
     return jsonify({"success": False, "message": "Project not found"}), 404
 
 @app.route('/api/dev_manager/projects/<pid>/open_vscode', methods=['POST'])
+@check_npm_manager_running
 def open_npm_vscode(pid):
     projects = load_npm_projects()
     project = next((p for p in projects if p['id'] == pid), None)
@@ -965,6 +991,7 @@ def open_npm_vscode(pid):
 
 
 @app.route('/api/dev_manager/projects/<pid>/rename', methods=['PATCH'])
+@check_npm_manager_running
 def rename_npm_project(pid):
     """Đổi tên hiển thị của npm project"""
     try:
@@ -983,6 +1010,7 @@ def rename_npm_project(pid):
 
 
 @app.route('/api/dev_manager/projects/reorder', methods=['POST'])
+@check_npm_manager_running
 def reorder_npm_projects():
     """Lưu thứ tự mới của các npm projects"""
     try:
