@@ -59,5 +59,33 @@
             "lint": "next lint"
         },
         "auto_start": false
+    },
+    {
+        "id": "21028c28-6aa7-4ce5-8fed-40c744c823db",
+        "path": "D:\\ThaiHien\\web-security-agent\\backend",
+        "name": "web-security-agent-backend",
+        "framework": "Node.js",
+        "version": "1.0.0",
+        "scripts": {
+            "dev": "tsx watch src/server.ts",
+            "build": "tsc",
+            "start": "node dist/server.js",
+            "clean": "rimraf dist"
+        },
+        "auto_start": false
+    },
+    {
+        "id": "1274b7bf-76a8-4cf8-8d97-14162217a82f",
+        "path": "D:\\ThaiHien\\web-security-agent\\frontend",
+        "name": "web-security-agent-frontend",
+        "framework": "Vite",
+        "version": "0.0.0",
+        "scripts": {
+            "dev": "vite",
+            "build": "tsc -b && vite build",
+            "lint": "oxlint",
+            "preview": "vite preview"
+        },
+        "auto_start": false
     }
 ]
